@@ -371,7 +371,24 @@
   filter: grayscale(0.5);
 }
 
-/* Checker pieces */
+/* Checker pieces and wrapper */
+.pieceWrapper {
+  position: absolute;
+  width: 12.5%;
+  height: 12.5%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: top 0.45s cubic-bezier(0.25, 1, 0.5, 1), 
+              left 0.45s cubic-bezier(0.25, 1, 0.5, 1);
+  pointer-events: none;
+  z-index: 10;
+}
+
+.pieceWrapperSelected {
+  z-index: 20;
+}
+
 .piece {
   width: 82%;
   height: 82%;
@@ -381,11 +398,13 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275), box-shadow 0.2s ease;
-  z-index: 10;
+  transition: transform 0.25s cubic-bezier(0.175, 0.885, 0.32, 1.275), 
+              box-shadow 0.25s ease,
+              opacity 0.25s ease;
   box-shadow: 0 6px 12px rgba(0, 0, 0, 0.4), 
               inset 0 -4px 6px rgba(0, 0, 0, 0.6),
               inset 0 4px 6px rgba(255, 255, 255, 0.3);
+  pointer-events: auto;
 }
 
 .pieceWhite {
@@ -411,10 +430,9 @@
 }
 
 .pieceSelected {
-  transform: scale(1.1) translateY(-4px);
-  box-shadow: 0 10px 20px rgba(0, 0, 0, 0.6), 
-              0 0 20px var(--primary);
-  z-index: 20;
+  transform: scale(1.15) translateY(-6px);
+  box-shadow: 0 12px 24px rgba(0, 0, 0, 0.6), 
+              0 0 25px var(--primary);
 }
 
 /* Concentric rings on checker */

@@ -287,8 +287,18 @@ export default function GameRoom() {
   }
 
   // Render board rows & columns. Reverse if Black for correct perspective.
-  const rowOrder = role === 'b' ? [0, 1, 2, 3, 4, 5, 6, 7] : [7, 6, 5, 4, 3, 2, 1, 0];
+  const rowOrder = role === 'b' ? [7, 6, 5, 4, 3, 2, 1, 0] : [0, 1, 2, 3, 4, 5, 6, 7];
   const colOrder = role === 'b' ? [7, 6, 5, 4, 3, 2, 1, 0] : [0, 1, 2, 3, 4, 5, 6, 7];
+
+  const piecesToRender: { piece: any; r: number; c: number }[] = [];
+  for (let r = 0; r < 8; r++) {
+    for (let c = 0; c < 8; c++) {
+      const cell = board[r][c];
+      if (cell) {
+        piecesToRender.push({ piece: cell, r, c });
+      }
+    }
+  }
 
   return (
     <div className={styles.layout}>
@@ -484,7 +494,6 @@ export default function GameRoom() {
             {rowOrder.map((r) => (
               <div className={styles.boardRow} key={`row-${r}`}>
                 {colOrder.map((c) => {
-                  const cell = board[r][c];
                   const isDark = (r + c) % 2 === 1;
                   
                   // Highlights
@@ -492,11 +501,6 @@ export default function GameRoom() {
                   const validMove = validDestinations.find(d => d.to.r === r && d.to.c === c);
                   const isValidDest = !!validMove;
                   const isCapture = validMove?.isCapture;
-
-                  const hasMove = movablePositions.some(p => p.r === r && p.c === c);
-                  
-                  // Check if piece is on a captured position (locked/shaded)
-                  const isCapturedObstacle = hasPos(capturedPositions, { r, c });
 
                   return (
                     <div
@@ -509,7 +513,7 @@ export default function GameRoom() {
                       onClick={() => handleSquareClick(r, c)}
                     >
                       {/* Render labels on dark cells along bottom and left */}
-                      {isDark && (role === 'b' ? r === 7 : r === 0) && (
+                      {isDark && (role === 'b' ? r === 0 : r === 7) && (
                         <span className={`${styles.cellLabel} ${styles.cellLabelCol}`}>
                           {colToLetter(c)}
                         </span>
@@ -519,27 +523,51 @@ export default function GameRoom() {
                           {rowToNumber(r)}
                         </span>
                       )}
-
-                      {/* Render piece */}
-                      {cell && (
-                        <div
-                          className={`${styles.piece} ${
-                            cell.player === 'w' ? styles.pieceWhite : styles.pieceBlack
-                          } ${isSelected ? styles.pieceSelected : ''} ${
-                            isMyTurn && hasMove ? styles.pieceMovable : ''
-                          } ${isCapturedObstacle ? styles.cellCapturedObstacle : ''}`}
-                        >
-                          <div className={styles.pieceInnerRing} />
-                          {cell.type === 'damka' && (
-                            <Crown size={22} className={styles.damkaCrown} />
-                          )}
-                        </div>
-                      )}
                     </div>
                   );
                 })}
               </div>
             ))}
+
+            {/* Absolute overlay for checker pieces to enable smooth movement transitions */}
+            <div style={{ position: 'absolute', top: '12px', left: '12px', right: '12px', bottom: '12px', pointerEvents: 'none' }}>
+              {piecesToRender.map(({ piece, r, c }) => {
+                const topPercent = role === 'b' ? (7 - r) * 12.5 : r * 12.5;
+                const leftPercent = role === 'b' ? (7 - c) * 12.5 : c * 12.5;
+                
+                const isSelected = selectedPiece && posEq(selectedPiece, { r, c });
+                const hasMove = movablePositions.some(p => p.r === r && p.c === c);
+                const isCapturedObstacle = hasPos(capturedPositions, { r, c });
+
+                return (
+                  <div
+                    key={piece.id}
+                    className={`${styles.pieceWrapper} ${isSelected ? styles.pieceWrapperSelected : ''}`}
+                    style={{
+                      top: `${topPercent}%`,
+                      left: `${leftPercent}%`,
+                    }}
+                  >
+                    <div
+                      className={`${styles.piece} ${
+                        piece.player === 'w' ? styles.pieceWhite : styles.pieceBlack
+                      } ${isSelected ? styles.pieceSelected : ''} ${
+                        isMyTurn && hasMove ? styles.pieceMovable : ''
+                      } ${isCapturedObstacle ? styles.cellCapturedObstacle : ''}`}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleSquareClick(r, c);
+                      }}
+                    >
+                      <div className={styles.pieceInnerRing} />
+                      {piece.type === 'damka' && (
+                        <Crown size={22} className={styles.damkaCrown} />
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
           </div>
         </div>
       </div>
