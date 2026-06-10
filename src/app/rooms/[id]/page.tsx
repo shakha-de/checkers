@@ -415,7 +415,7 @@ export default function GameRoom() {
     );
   }
 
-  const { board, turn, activePiece, capturedPositions, winner, drawProposedBy } = gameState;
+  const { board, turn, activePiece, capturedPositions, winner, drawProposedBy, score } = gameState;
 
   // Verify if the current user can make a move
   const isMyTurn = turn === role && !winner;
@@ -656,6 +656,28 @@ export default function GameRoom() {
                 {role === 'b' && 'Вы играете за Черных (внизу)'}
                 {role === 'spectator' && 'Режим зрителя'}
               </span>
+            </div>
+
+            {/* Scoreboard */}
+            <div className={styles.scoreBoard} title="Счет матча (Белые : Черные)">
+              <div className={styles.scorePlayer}>
+                <span className={styles.scoreLabel}>Белые</span>
+                <span className={`${styles.scoreNumber} ${styles.scoreNumberWhite}`}>
+                  {score?.w ?? 0}
+                </span>
+              </div>
+              <div className={styles.scoreColon}>:</div>
+              <div className={styles.scorePlayer}>
+                <span className={styles.scoreLabel}>Черные</span>
+                <span className={`${styles.scoreNumber} ${styles.scoreNumberBlack}`}>
+                  {score?.b ?? 0}
+                </span>
+              </div>
+              {(score?.draws ?? 0) > 0 && (
+                <div className={styles.scoreDrawsText} title="Ничьи">
+                  ({score?.draws} Н)
+                </div>
+              )}
             </div>
 
             <div className={styles.gameControls}>

@@ -32,6 +32,11 @@ export interface GameState {
   history: string[]; // Standard notation history, e.g., ["e3-d4", "d6-c5"]
   winner: Player | 'draw' | null;
   drawProposedBy: Player | null;
+  score?: {
+    w: number;
+    b: number;
+    draws: number;
+  };
 }
 
 // Check if two positions are equal

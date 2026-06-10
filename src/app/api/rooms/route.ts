@@ -38,6 +38,7 @@ export async function POST(request: Request) {
           history: [],
           winner: null,
           drawProposedBy: null,
+          score: { w: 0, b: 0, draws: 0 },
         },
         players: {
           w: wPlayer,

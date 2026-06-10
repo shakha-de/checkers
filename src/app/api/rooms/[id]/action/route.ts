@@ -35,6 +35,9 @@ export async function POST(
 
     // Clone mutable objects
     let gameState = { ...room.game_state };
+    if (!gameState.score) {
+      gameState.score = { w: 0, b: 0, draws: 0 };
+    }
     let status = room.status;
     let chat = [...room.chat];
 
@@ -71,6 +74,7 @@ export async function POST(
 
         // Apply move
         const { nextState } = makeMove(gameState, matchedMove);
+        nextState.score = gameState.score; // Preserve score
         gameState = nextState;
 
         // If winner is decided, update room status
@@ -185,6 +189,7 @@ export async function POST(
           history: [],
           winner: null,
           drawProposedBy: null,
+          score: gameState.score, // Preserve score
         };
         status = 'active';
 
@@ -217,6 +222,13 @@ export async function POST(
 
       default:
         return NextResponse.json({ error: 'Unknown action type' }, { status: 400 });
+    }
+
+    // If the game just finished, increment the score
+    if (status === 'finished' && room.status !== 'finished') {
+      if (gameState.winner === 'w') gameState.score.w++;
+      else if (gameState.winner === 'b') gameState.score.b++;
+      else if (gameState.winner === 'draw') gameState.score.draws++;
     }
 
     // Save updated values to Supabase
