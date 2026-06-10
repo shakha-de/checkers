@@ -708,3 +708,66 @@
   filter: brightness(1.1);
   box-shadow: 0 0 12px var(--primary-glow);
 }
+
+/* Future jumps path indicators */
+.futureDestIndicator {
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  top: 0;
+  left: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+}
+
+.futureDestIndicator::after {
+  content: "";
+  position: absolute;
+  width: 30%;
+  height: 30%;
+  border-radius: 50%;
+  border: 2px dashed rgba(0, 210, 255, 0.6);
+  background: rgba(0, 210, 255, 0.05);
+  animation: pulseGlow 2s infinite ease-in-out;
+}
+
+.futureDestIndicator span {
+  font-size: 0.75rem;
+  font-weight: 800;
+  color: rgba(0, 210, 255, 0.95);
+  text-shadow: 0 0 4px rgba(0, 210, 255, 0.8);
+  z-index: 1;
+}
+
+/* Red sword badge for pieces about to be captured */
+.captureTargetBadge {
+  position: absolute;
+  top: -8px;
+  right: -8px;
+  background: rgba(229, 62, 62, 0.95);
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  color: #fff;
+  font-size: 0.7rem;
+  font-weight: 800;
+  border-radius: 6px;
+  padding: 1px 5px;
+  box-shadow: 0 0 8px rgba(229, 62, 62, 0.8);
+  z-index: 30;
+  pointer-events: none;
+  animation: pulseScale 1.5s infinite alternate ease-in-out;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+}
+
+@keyframes pulseScale {
+  from {
+    transform: scale(0.95);
+  }
+  to {
+    transform: scale(1.05);
+  }
+}

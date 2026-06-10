@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { roomsStore, broadcastToRoom } from '@/lib/roomsStore';
+import { supabase } from '@/lib/supabase';
 
 export async function POST(
   request: Request,
@@ -7,9 +7,14 @@ export async function POST(
 ) {
   try {
     const { id } = await context.params;
-    const room = roomsStore.get(id);
 
-    if (!room) {
+    const { data: room, error: fetchError } = await supabase
+      .from('rooms')
+      .select('*')
+      .eq('id', id)
+      .maybeSingle();
+
+    if (fetchError || !room) {
       return NextResponse.json({ error: 'Room not found' }, { status: 404 });
     }
 
@@ -30,26 +35,30 @@ export async function POST(
     const newToken = Math.random().toString(36).substring(2, 15);
     let assignedColor: 'w' | 'b' | 'spectator' = 'spectator';
 
-    if (!room.players.w) {
-      room.players.w = newToken;
+    const players = { ...room.players };
+    const chat = [...room.chat];
+    let status = room.status;
+
+    if (!players.w) {
+      players.w = newToken;
       assignedColor = 'w';
-    } else if (!room.players.b) {
-      room.players.b = newToken;
+    } else if (!players.b) {
+      players.b = newToken;
       assignedColor = 'b';
     }
 
     if (assignedColor !== 'spectator') {
-      const isGameStarting = room.players.w && room.players.b;
+      const isGameStarting = players.w && players.b;
       if (isGameStarting) {
-        room.status = 'active';
-        room.chat.push({
+        status = 'active';
+        chat.push({
           id: `sys-start-${Date.now()}`,
           sender: 'system',
           text: 'Соперник присоединился. Игра началась! Ход белых.',
           timestamp: Date.now(),
         });
       } else {
-        room.chat.push({
+        chat.push({
           id: `sys-join-${Date.now()}`,
           sender: 'system',
           text: `Игрок присоединился за ${assignedColor === 'w' ? 'белых' : 'черных'}. Ожидание второго игрока...`,
@@ -57,16 +66,19 @@ export async function POST(
         });
       }
 
-      // Broadcast room update to all SSE subscribers
-      broadcastToRoom(room, 'sync', {
-        gameState: room.gameState,
-        players: {
-          w: room.players.w ? true : false,
-          b: room.players.b ? true : false,
-        },
-        chat: room.chat,
-        status: room.status,
-      });
+      // Update in Supabase (Realtime will broadcast this update automatically)
+      const { error: updateError } = await supabase
+        .from('rooms')
+        .update({
+          players,
+          chat,
+          status,
+        })
+        .eq('id', id);
+
+      if (updateError) {
+        throw new Error(updateError.message);
+      }
 
       return NextResponse.json({
         token: newToken,
@@ -79,8 +91,8 @@ export async function POST(
       token: existingToken || newToken,
       color: 'spectator',
     });
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error joining room', error);
-    return NextResponse.json({ error: 'Failed to join room' }, { status: 500 });
+    return NextResponse.json({ error: error?.message || 'Failed to join room' }, { status: 500 });
   }
 }

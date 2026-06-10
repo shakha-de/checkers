@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
-import { roomsStore, Room } from '@/lib/roomsStore';
 import { initializeBoard } from '@/lib/checkers';
+import { supabase } from '@/lib/supabase';
 
 export async function POST(request: Request) {
   try {
@@ -26,42 +26,46 @@ export async function POST(request: Request) {
       bPlayer = creatorToken;
     }
 
-    const newRoom: Room = {
-      id: roomId,
-      gameState: {
-        board: initializeBoard(),
-        turn: 'w',
-        activePiece: null,
-        capturedPositions: [],
-        history: [],
-        winner: null,
-        drawProposedBy: null,
-      },
-      players: {
-        w: wPlayer,
-        b: bPlayer,
-      },
-      chat: [
-        {
-          id: 'sys-start',
-          sender: 'system',
-          text: 'Игра создана. Ожидание соперника...',
-          timestamp: Date.now(),
-        }
-      ],
-      status: 'waiting',
-      subscribers: new Set(),
-    };
+    const { error } = await supabase
+      .from('rooms')
+      .insert({
+        id: roomId,
+        game_state: {
+          board: initializeBoard(),
+          turn: 'w',
+          activePiece: null,
+          capturedPositions: [],
+          history: [],
+          winner: null,
+          drawProposedBy: null,
+        },
+        players: {
+          w: wPlayer,
+          b: bPlayer,
+        },
+        chat: [
+          {
+            id: 'sys-start',
+            sender: 'system',
+            text: 'Игра создана. Ожидание соперника...',
+            timestamp: Date.now(),
+          }
+        ],
+        status: 'waiting',
+      });
 
-    roomsStore.set(roomId, newRoom);
+    if (error) {
+      console.error('Supabase insertion error:', error);
+      throw new Error(error.message);
+    }
 
     return NextResponse.json({
       roomId,
       creatorColor: chosenColor,
       creatorToken,
     });
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error creating room', error);
-    return NextResponse.json({ error: 'Failed to create room' }, { status: 500 });
+    return NextResponse.json({ error: error?.message || 'Failed to create room' }, { status: 500 });
   }
 }

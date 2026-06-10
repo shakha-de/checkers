@@ -16,9 +16,95 @@ import {
   Trophy,
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
-import { GameState, Position, Move, getValidMoves, posEq, hasPos, colToLetter, rowToNumber } from '@/lib/checkers';
-import { ChatMessage } from '@/lib/roomsStore';
+import { GameState, Position, Move, getValidMoves, posEq, hasPos, colToLetter, rowToNumber, Piece, getCheckerJumps, getDamkaJumps, shouldPromote } from '@/lib/checkers';
+import { supabase } from '@/lib/supabase';
+import { playMoveSound, playCaptureSound, playPromotionSound } from '@/lib/sounds';
 import styles from './room.module.css';
+
+export interface ChatMessage {
+  id: string;
+  sender: 'w' | 'b' | 'system' | 'spectator';
+  text: string;
+  timestamp: number;
+}
+
+interface JumpStep {
+  to: Position;
+  captured: Position;
+  steps: JumpStep[];
+}
+
+function getJumpTree(
+  board: (Piece | null)[][],
+  r: number,
+  c: number,
+  player: 'w' | 'b',
+  captured: Position[]
+): JumpStep[] {
+  const piece = board[r][c];
+  if (!piece) return [];
+
+  let immediateJumps: Move[] = [];
+  if (piece.type === 'checker') {
+    immediateJumps = getCheckerJumps(board, r, c, player, captured);
+  } else {
+    immediateJumps = getDamkaJumps(board, r, c, player, captured);
+  }
+
+  const result: JumpStep[] = [];
+
+  for (const jump of immediateJumps) {
+    if (!jump.capturedPiece) continue;
+
+    // Simulate board state after this jump
+    const nextBoard = board.map(row => [...row]);
+    const p = nextBoard[jump.from.r][jump.from.c];
+    nextBoard[jump.from.r][jump.from.c] = null;
+    nextBoard[jump.to.r][jump.to.c] = p;
+
+    // Promote if needed
+    if (p && shouldPromote(p, jump.to.r)) {
+      p.type = 'damka';
+    }
+
+    const nextCaptured = [...captured, jump.capturedPiece];
+    const subSteps = getJumpTree(nextBoard, jump.to.r, jump.to.c, player, nextCaptured);
+
+    result.push({
+      to: jump.to,
+      captured: jump.capturedPiece,
+      steps: subSteps
+    });
+  }
+
+  return result;
+}
+
+interface FlattenedStep {
+  to: Position;
+  captured: Position;
+  step: number;
+}
+
+function flattenPaths(
+  tree: JumpStep[],
+  currentPath: FlattenedStep[] = []
+): FlattenedStep[][] {
+  if (tree.length === 0) {
+    return [currentPath];
+  }
+
+  const paths: FlattenedStep[][] = [];
+  for (const node of tree) {
+    const nextStep = currentPath.length + 1;
+    const subPaths = flattenPaths(node.steps, [
+      ...currentPath,
+      { to: node.to, captured: node.captured, step: nextStep }
+    ]);
+    paths.push(...subPaths);
+  }
+  return paths;
+}
 
 export default function GameRoom() {
   const params = useParams();
@@ -38,6 +124,7 @@ export default function GameRoom() {
   // Selection state
   const [selectedPiece, setSelectedPiece] = useState<Position | null>(null);
   const [validDestinations, setValidDestinations] = useState<Move[]>([]);
+  const [pendingAutoTarget, setPendingAutoTarget] = useState<Position | null>(null);
 
   // UI state
   const [chatText, setChatText] = useState('');
@@ -86,46 +173,121 @@ export default function GameRoom() {
     joinRoom();
   }, [roomId]);
 
-  // 2. Establish SSE connection
+  // 2. Establish Supabase Realtime connection and fetch initial state
   useEffect(() => {
     if (!token) return;
 
-    const eventSource = new EventSource(`/api/rooms/${roomId}/events?token=${token}`);
-
-    eventSource.onmessage = (event) => {
+    const fetchInitialRoomState = async () => {
       try {
-        const message = JSON.parse(event.data);
-        if (message.type === 'sync') {
-          const payload = message.payload;
-          setGameState(payload.gameState);
-          setPlayers(payload.players);
-          setChat(payload.chat);
-          setStatus(payload.status);
-          
-          if (payload.role) {
-            setRole(payload.role);
-          }
-          
-          setLoading(false);
+        const { data: room, error: fetchErr } = await supabase
+          .from('rooms')
+          .select('*')
+          .eq('id', roomId)
+          .maybeSingle();
+
+        if (fetchErr) {
+          throw fetchErr;
         }
+
+        if (room) {
+          setGameState(room.game_state);
+          setPlayers({
+            w: !!room.players.w,
+            b: !!room.players.b,
+          });
+          setChat(room.chat || []);
+          setStatus(room.status);
+        }
+        setLoading(false);
       } catch (err) {
-        console.error('Error parsing SSE event:', err);
+        console.error('Error fetching initial room state:', err);
+        setError('Не удалось получить состояние комнаты');
+        setLoading(false);
       }
     };
 
-    eventSource.onerror = (err) => {
-      console.error('SSE Error:', err);
-      // Wait before retrying is handled automatically by EventSource,
-      // but we can check if it was closed
-      if (eventSource.readyState === EventSource.CLOSED) {
-        console.log('SSE connection closed. Reconnecting...');
-      }
-    };
+    fetchInitialRoomState();
+
+    const channel = supabase
+      .channel(`room:${roomId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'rooms',
+          filter: `id=eq.${roomId}`,
+        },
+        (payload) => {
+          const updatedRoom = payload.new as any;
+          if (updatedRoom) {
+            setGameState(updatedRoom.game_state);
+            setPlayers({
+              w: !!updatedRoom.players.w,
+              b: !!updatedRoom.players.b,
+            });
+            setChat(updatedRoom.chat || []);
+            setStatus(updatedRoom.status);
+          }
+        }
+      )
+      .subscribe();
 
     return () => {
-      eventSource.close();
+      supabase.removeChannel(channel);
     };
   }, [roomId, token]);
+
+  // Audio state tracking
+  const prevHistoryLenRef = useRef<number>(0);
+  const prevDamkaCountRef = useRef<number>(0);
+  const isFirstLoadRef = useRef<boolean>(true);
+
+  // Hook to handle sound effects when the game state updates
+  useEffect(() => {
+    if (!gameState) return;
+
+    const countDamkas = (b: (Piece | null)[][]) => {
+      let count = 0;
+      for (let r = 0; r < 8; r++) {
+        for (let c = 0; c < 8; c++) {
+          if (b[r]?.[c]?.type === 'damka') {
+            count++;
+          }
+        }
+      }
+      return count;
+    };
+
+    const currentLen = gameState.history.length;
+    const currentDamkas = countDamkas(gameState.board);
+
+    if (isFirstLoadRef.current) {
+      prevHistoryLenRef.current = currentLen;
+      prevDamkaCountRef.current = currentDamkas;
+      isFirstLoadRef.current = false;
+      return;
+    }
+
+    const prevLen = prevHistoryLenRef.current;
+    const prevDamkas = prevDamkaCountRef.current;
+
+    if (currentLen > prevLen) {
+      const lastMove = gameState.history[currentLen - 1];
+      const isCapture = lastMove.includes(':');
+
+      if (currentDamkas > prevDamkas) {
+        playPromotionSound();
+      } else if (isCapture) {
+        playCaptureSound();
+      } else {
+        playMoveSound();
+      }
+    }
+
+    prevHistoryLenRef.current = currentLen;
+    prevDamkaCountRef.current = currentDamkas;
+  }, [gameState]);
 
   // 3. Auto-scroll chat to bottom
   useEffect(() => {
@@ -146,6 +308,83 @@ export default function GameRoom() {
       }
     }
   }, [gameState?.winner, role]);
+
+  // 5. Auto-submit remaining jumps in a multi-jump path
+  useEffect(() => {
+    if (!gameState) return;
+
+    const isCurrentMyTurn = gameState.turn === role && !gameState.winner;
+    if (!isCurrentMyTurn) {
+      setPendingAutoTarget(null);
+      return;
+    }
+
+    if (!pendingAutoTarget) return;
+
+    const { board, activePiece, capturedPositions, turn } = gameState;
+    
+    // If no activePiece is locked, we are waiting for the server to process the first jump of our turn.
+    // We do not clear the pending target; we just wait.
+    if (!activePiece) {
+      return;
+    }
+
+    // Get valid moves for the active piece
+    const validMovesForActive = getValidMoves(board, turn, activePiece, capturedPositions);
+
+    // If the active piece is already at the target, we are done
+    if (posEq(activePiece, pendingAutoTarget)) {
+      setPendingAutoTarget(null);
+      return;
+    }
+
+    // Otherwise, calculate the jump tree from the active piece
+    const currentJumpPaths = flattenPaths(
+      getJumpTree(board, activePiece.r, activePiece.c, turn, capturedPositions)
+    );
+
+    // Find a path that leads to the pendingAutoTarget
+    const pathForTarget = currentJumpPaths.find(path =>
+      path.some(step => posEq(step.to, pendingAutoTarget))
+    );
+
+    if (pathForTarget) {
+      // Find the first step of this path
+      const firstStep = pathForTarget.find(step => step.step === 1);
+      const matchedMove = firstStep
+        ? validMovesForActive.find(d => posEq(d.to, firstStep.to))
+        : null;
+
+      if (matchedMove) {
+        // Auto-submit this move with a delay for animations and sound effects
+        const timer = setTimeout(async () => {
+          try {
+            const res = await fetch(`/api/rooms/${roomId}/action`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                token,
+                actionType: 'move',
+                data: { move: matchedMove },
+              }),
+            });
+            if (!res.ok) {
+              const errData = await res.json();
+              alert(errData.error || 'Ошибка авто-хода');
+              setPendingAutoTarget(null);
+            }
+          } catch (err) {
+            console.error(err);
+            setPendingAutoTarget(null);
+          }
+        }, 550);
+        return () => clearTimeout(timer);
+      }
+    } else {
+      // Target is no longer reachable, clear
+      setPendingAutoTarget(null);
+    }
+  }, [gameState, pendingAutoTarget, role, token, roomId]);
 
   if (loading) {
     return (
@@ -207,6 +446,7 @@ export default function GameRoom() {
     // 1. If clicking a cell that is a valid destination for the selected piece
     const matchedMove = validDestinations.find(d => d.to.r === r && d.to.c === c);
     if (matchedMove) {
+      setPendingAutoTarget(null);
       setSelectedPiece(null);
       setValidDestinations([]);
       
@@ -232,20 +472,62 @@ export default function GameRoom() {
       return;
     }
 
-    // 2. Otherwise, check if clicking one of my own movable pieces
+    // 2. Clicked a future destination cell in one of the paths (Step 2+)
+    const pathForTarget = selectedJumpPaths.find(path =>
+      path.some(step => posEq(step.to, clickedPos))
+    );
+    if (pathForTarget) {
+      const firstStep = pathForTarget.find(step => step.step === 1);
+      const matchedFirstMove = firstStep
+        ? validDestinations.find(d => posEq(d.to, firstStep.to))
+        : null;
+
+      if (matchedFirstMove) {
+        setPendingAutoTarget(clickedPos);
+        setSelectedPiece(null);
+        setValidDestinations([]);
+        
+        try {
+          const res = await fetch(`/api/rooms/${roomId}/action`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              token,
+              actionType: 'move',
+              data: { move: matchedFirstMove },
+            }),
+          });
+          if (!res.ok) {
+            const errData = await res.json();
+            alert(errData.error || 'Ошибка хода');
+            setPendingAutoTarget(null);
+          }
+        } catch (err) {
+          console.error(err);
+          alert('Не удалось отправить ход');
+          setPendingAutoTarget(null);
+        }
+        return;
+      }
+    }
+
+    // 3. Otherwise, check if clicking one of my own movable pieces
     if (piece && piece.player === role) {
       const isMovable = movablePositions.some(p => p.r === r && p.c === c);
       if (isMovable) {
+        setPendingAutoTarget(null);
         setSelectedPiece(clickedPos);
         const destinations = validMoves.filter(m => m.from.r === r && m.from.c === c);
         setValidDestinations(destinations);
       } else {
         // Not movable (must capture with another piece or not your turn)
+        setPendingAutoTarget(null);
         setSelectedPiece(null);
         setValidDestinations([]);
       }
     } else {
       // Clicked empty square (not valid destination) or opponent's piece
+      setPendingAutoTarget(null);
       setSelectedPiece(null);
       setValidDestinations([]);
     }
@@ -289,6 +571,11 @@ export default function GameRoom() {
   // Render board rows & columns. Reverse if Black for correct perspective.
   const rowOrder = role === 'b' ? [7, 6, 5, 4, 3, 2, 1, 0] : [0, 1, 2, 3, 4, 5, 6, 7];
   const colOrder = role === 'b' ? [7, 6, 5, 4, 3, 2, 1, 0] : [0, 1, 2, 3, 4, 5, 6, 7];
+
+  // If a piece is selected, calculate all its complete jump paths
+  const selectedJumpPaths = selectedPiece
+    ? flattenPaths(getJumpTree(board, selectedPiece.r, selectedPiece.c, turn, capturedPositions))
+    : [];
 
   const piecesToRender: { piece: any; r: number; c: number }[] = [];
   for (let r = 0; r < 8; r++) {
@@ -502,16 +789,32 @@ export default function GameRoom() {
                   const isValidDest = !!validMove;
                   const isCapture = validMove?.isCapture;
 
+                  // Find steps in the complete paths that land on (r, c)
+                  const pathSteps = selectedJumpPaths
+                    .flatMap(path => path)
+                    .filter(step => posEq(step.to, { r, c }));
+                  
+                  const isFutureDest = pathSteps.length > 0 && !isValidDest;
+                  const showStepNumber = pathSteps.length > 0;
+                  const stepNumbers = showStepNumber
+                    ? Array.from(new Set(pathSteps.map(s => s.step))).sort().join('/')
+                    : '';
+
                   return (
                     <div
                       className={`${styles.cell} ${isDark ? styles.cellDark : styles.cellLight} ${
                         isSelected ? styles.cellSelected : ''
                       } ${isValidDest ? styles.cellValidMove : ''} ${
                         isValidDest && isCapture ? styles.cellValidCapture : ''
-                      }`}
+                      } ${isFutureDest ? styles.cellValidMove : ''}`}
                       key={`cell-${r}-${c}`}
                       onClick={() => handleSquareClick(r, c)}
                     >
+                      {showStepNumber && (
+                        <div className={styles.futureDestIndicator}>
+                          <span>{stepNumbers}</span>
+                        </div>
+                      )}
                       {/* Render labels on dark cells along bottom and left */}
                       {isDark && (role === 'b' ? r === 0 : r === 7) && (
                         <span className={`${styles.cellLabel} ${styles.cellLabelCol}`}>
@@ -539,13 +842,22 @@ export default function GameRoom() {
                 const hasMove = movablePositions.some(p => p.r === r && p.c === c);
                 const isCapturedObstacle = hasPos(capturedPositions, { r, c });
 
+                // Find if this piece is captured in the selected piece's paths
+                const captureSteps = selectedJumpPaths
+                  .flatMap(path => path)
+                  .filter(step => posEq(step.captured, { r, c }));
+                const isTargetOfCapture = captureSteps.length > 0;
+                const captureStepNumbers = isTargetOfCapture
+                  ? Array.from(new Set(captureSteps.map(s => s.step))).sort().join('/')
+                  : '';
+
                 return (
                   <div
                     key={piece.id}
                     className={`${styles.pieceWrapper} ${isSelected ? styles.pieceWrapperSelected : ''}`}
                     style={{
-                      top: `${topPercent}%`,
-                      left: `${leftPercent}%`,
+                       top: `${topPercent}%`,
+                       left: `${leftPercent}%`,
                     }}
                   >
                     <div
@@ -564,6 +876,11 @@ export default function GameRoom() {
                         <Crown size={22} className={styles.damkaCrown} />
                       )}
                     </div>
+                    {isTargetOfCapture && (
+                      <div className={styles.captureTargetBadge}>
+                        <span>⚔️ {captureStepNumbers}</span>
+                      </div>
+                    )}
                   </div>
                 );
               })}
