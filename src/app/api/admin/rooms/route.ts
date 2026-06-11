@@ -17,7 +17,7 @@ const adminSupabase = supabaseServiceRoleKey
 // Helper to verify admin passcode
 function isAuthorized(request: Request): boolean {
   const authHeader = request.headers.get('Authorization');
-  const adminPass = process.env.SUPABASE_PASS || 'checkpasswordbeforeusing';
+  const adminPass = process.env.SUPABASE_PASS;
   return authHeader === adminPass;
 }
 
