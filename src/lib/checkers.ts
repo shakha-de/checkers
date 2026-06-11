@@ -164,7 +164,6 @@ export function getDamkaJumps(
   capturedPositions: Position[]
 ): Move[] {
   const jumps: Move[] = [];
-  const opponent = player === 'w' ? 'b' : 'w';
   const directions = [
     { dr: -1, dc: -1 },
     { dr: -1, dc: 1 },
@@ -387,10 +386,8 @@ export function makeMove(
   }
 
   // Immediate promotion during a jump or normal move
-  let promotedThisMove = false;
   if (shouldPromote(piece, to.r)) {
     piece.type = 'damka';
-    promotedThisMove = true;
   }
 
   // Check if turn ends
@@ -421,7 +418,7 @@ export function makeMove(
   const notationSeparator = isCapture ? ':' : '-';
   const moveNotation = `${notationFrom}${notationSeparator}${notationTo}`;
 
-  let nextHistory = [...state.history];
+  const nextHistory = [...state.history];
 
   if (state.activePiece) {
     // If it was a continuation of a multi-jump, append to the last move in history

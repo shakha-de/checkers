@@ -15,6 +15,11 @@ import {
   Trophy,
   ChevronUp,
   ChevronDown,
+  ChevronLeft,
+  ChevronRight,
+  ChevronsLeft,
+  ChevronsRight,
+  Download,
 } from 'lucide-react';
 import Link from 'next/link';
 import Image from 'next/image';
@@ -22,6 +27,7 @@ import confetti from 'canvas-confetti';
 import { GameState, Position, Move, getValidMoves, posEq, hasPos, colToLetter, rowToNumber, Piece, getCheckerJumps, getDamkaJumps, shouldPromote } from '@/lib/checkers';
 import { supabase } from '@/lib/supabase';
 import { playMoveSound, playCaptureSound, playPromotionSound } from '@/lib/sounds';
+import { exportToPDN, reconstructBoardAtHistoryIndex } from '@/lib/pdn';
 import styles from './room.module.css';
 
 export interface ChatMessage {
@@ -135,6 +141,7 @@ export default function GameRoom() {
   const [copied, setCopied] = useState(false);
   const [isChatMinimized, setIsChatMinimized] = useState(false);
   const [isHistoryMinimized, setIsHistoryMinimized] = useState(false);
+  const [replayIndex, setReplayIndex] = useState<number | null>(null);
 
   // Refs for auto scrolling chat
   const chatScrollRef = useRef<HTMLDivElement>(null);
@@ -148,7 +155,7 @@ export default function GameRoom() {
   };
 
   // Perform standard game actions
-  const triggerAction = useCallback(async (actionType: string, data: any = {}) => {
+  const triggerAction = useCallback(async (actionType: string, data: Record<string, unknown> = {}) => {
     try {
       const res = await fetch(`/api/rooms/${roomId}/action`, {
         method: 'POST',
@@ -167,6 +174,7 @@ export default function GameRoom() {
 
   // Hook to handle AI player moves
   useEffect(() => {
+    if (replayIndex !== null) return;
     if (!gameState || status !== 'active' || !rawPlayers || role === 'spectator' || !role) return;
 
     const currentTurn = gameState.turn;
@@ -199,7 +207,7 @@ export default function GameRoom() {
     };
 
     calculateAndMove();
-  }, [gameState, status, rawPlayers, role, triggerAction]);
+  }, [gameState, status, rawPlayers, role, triggerAction, replayIndex]);
 
   // 1. Initial join and token setup
   useEffect(() => {
@@ -284,7 +292,7 @@ export default function GameRoom() {
           filter: `id=eq.${roomId}`,
         },
         (payload) => {
-          const updatedRoom = payload.new as any;
+          const updatedRoom = payload.new as { game_state: GameState; players: { w: string | null; b: string | null }; chat: ChatMessage[]; status: 'waiting' | 'active' | 'finished' };
           if (updatedRoom) {
             setGameState(updatedRoom.game_state);
             setRawPlayers(updatedRoom.players);
@@ -375,6 +383,7 @@ export default function GameRoom() {
 
   // 5. Auto-submit remaining jumps in a multi-jump path
   useEffect(() => {
+    if (replayIndex !== null) return;
     if (!gameState) return;
 
     const isCurrentMyTurn = gameState.turn === role && !gameState.winner;
@@ -454,7 +463,84 @@ export default function GameRoom() {
         Promise.resolve().then(() => setPendingAutoTarget(null));
       }
     }
-  }, [gameState, pendingAutoTarget, role, token, roomId]);
+  }, [gameState, pendingAutoTarget, role, token, roomId, replayIndex]);
+
+  // Replay Navigation handlers
+  const handleReplayFirst = () => {
+    setReplayIndex(0);
+  };
+
+  const handleReplayPrev = () => {
+    setReplayIndex((prev) => {
+      const historyLen = gameState?.history?.length ?? 0;
+      if (prev === null) {
+        return historyLen > 0 ? historyLen - 1 : null;
+      }
+      return prev > 0 ? prev - 1 : 0;
+    });
+  };
+
+  const handleReplayNext = () => {
+    setReplayIndex((prev) => {
+      const historyLen = gameState?.history?.length ?? 0;
+      if (prev === null) return null;
+      if (prev < historyLen) return prev + 1;
+      return null;
+    });
+  };
+
+  const handleReplayLast = () => {
+    setReplayIndex(null);
+  };
+
+  const handleExportPDN = () => {
+    if (!gameState) return;
+    const pdnContent = exportToPDN({
+      game_state: gameState,
+      players: rawPlayers,
+      id: roomId,
+    });
+    const blob = new Blob([pdnContent], { type: 'text/plain;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `checkers_${roomId}.pdn`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
+
+  // Keyboard navigation for history replay
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement;
+      if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA') {
+        return;
+      }
+      
+      const historyLen = gameState?.history?.length ?? 0;
+      if (e.key === 'ArrowLeft') {
+        e.preventDefault();
+        setReplayIndex((prev) => {
+          if (prev === null) {
+            return historyLen > 0 ? historyLen - 1 : null;
+          }
+          return prev > 0 ? prev - 1 : 0;
+        });
+      } else if (e.key === 'ArrowRight') {
+        e.preventDefault();
+        setReplayIndex((prev) => {
+          if (prev === null) return null;
+          if (prev < historyLen) return prev + 1;
+          return null;
+        });
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [gameState?.history?.length]);
 
   if (loading) {
     return (
@@ -487,11 +573,18 @@ export default function GameRoom() {
 
   const { board, turn, activePiece, capturedPositions, winner, drawProposedBy, score } = gameState;
 
+  const isReplaying = replayIndex !== null;
+  const activeBoard = isReplaying 
+    ? reconstructBoardAtHistoryIndex(gameState.history, replayIndex) 
+    : board;
+
+  const activeCapturedPositions = isReplaying ? [] : capturedPositions;
+
   // Verify if the current user can make a move
-  const isMyTurn = turn === role && !winner;
+  const isMyTurn = !isReplaying && turn === role && !winner;
 
   // Retrieve valid moves for the active player
-  const validMoves = getValidMoves(board, turn, activePiece, capturedPositions);
+  const validMoves = isReplaying ? [] : getValidMoves(activeBoard, turn, activePiece, activeCapturedPositions);
 
   // Filter valid moves that are allowed to start a move
   // (In multi-jump, only the activePiece is allowed)
@@ -508,10 +601,10 @@ export default function GameRoom() {
 
   // Handle clicking a square
   const handleSquareClick = async (r: number, c: number) => {
-    if (!isMyTurn) return;
+    if (isReplaying || !isMyTurn) return;
 
     const clickedPos = { r, c };
-    const piece = board[r][c];
+    const piece = activeBoard[r][c];
 
     // 1. If clicking a cell that is a valid destination for the selected piece
     const matchedMove = validDestinations.find(d => d.to.r === r && d.to.c === c);
@@ -620,13 +713,13 @@ export default function GameRoom() {
 
   // If a piece is selected, calculate all its complete jump paths
   const selectedJumpPaths = selectedPiece
-    ? flattenPaths(getJumpTree(board, selectedPiece.r, selectedPiece.c, turn, capturedPositions))
+    ? flattenPaths(getJumpTree(activeBoard, selectedPiece.r, selectedPiece.c, turn, activeCapturedPositions))
     : [];
 
-  const piecesToRender: { piece: any; r: number; c: number }[] = [];
+  const piecesToRender: { piece: Piece; r: number; c: number }[] = [];
   for (let r = 0; r < 8; r++) {
     for (let c = 0; c < 8; c++) {
-      const cell = board[r][c];
+      const cell = activeBoard[r][c];
       if (cell) {
         piecesToRender.push({ piece: cell, r, c });
       }
@@ -818,26 +911,38 @@ export default function GameRoom() {
             </div>
           </div>
 
-          {/* Turn Banner */}
-          {!winner && (
-            <div
-              className={`${styles.turnBanner} ${
-                turn === 'w' ? styles.turnBannerWhite : styles.turnBannerBlack
-              }`}
-            >
-              <div
-                className={`${styles.turnIndicatorDot} ${
-                  turn === 'w' ? styles.turnIndicatorDotWhite : styles.turnIndicatorDotBlack
-                }`}
-              />
-              <span>
-                {turn === role
-                  ? 'Ваш ход!'
-                  : `Ход ${turn === 'w' ? 'Белых' : 'Черных'}`}
-                {activePiece && ' (вы обязаны завершить серию взятий)'}
-                {aiCalculating && ' (ИИ думает...)'}
-              </span>
+          {/* Replay / Turn Banner */}
+          {replayIndex !== null ? (
+            <div className={styles.replayBanner}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                <History size={16} style={{ color: '#d4af37' }} />
+                <span>Просмотр истории (ход {replayIndex} из {gameState.history.length})</span>
+              </div>
+              <button className={styles.replayBannerBtn} onClick={() => setReplayIndex(null)}>
+                Вернуться к игре
+              </button>
             </div>
+          ) : (
+            !winner && (
+              <div
+                className={`${styles.turnBanner} ${
+                  turn === 'w' ? styles.turnBannerWhite : styles.turnBannerBlack
+                }`}
+              >
+                <div
+                  className={`${styles.turnIndicatorDot} ${
+                    turn === 'w' ? styles.turnIndicatorDotWhite : styles.turnIndicatorDotBlack
+                  }`}
+                />
+                <span>
+                  {turn === role
+                    ? 'Ваш ход!'
+                    : `Ход ${turn === 'w' ? 'Белых' : 'Черных'}`}
+                  {activePiece && ' (вы обязаны завершить серию взятий)'}
+                  {aiCalculating && ' (ИИ думает...)'}
+                </span>
+              </div>
+            )
           )}
 
           {/* Draw Proposal Banner */}
@@ -965,7 +1070,7 @@ export default function GameRoom() {
                 
                 const isSelected = selectedPiece && posEq(selectedPiece, { r, c });
                 const hasMove = movablePositions.some(p => p.r === r && p.c === c);
-                const isCapturedObstacle = hasPos(capturedPositions, { r, c });
+                const isCapturedObstacle = hasPos(activeCapturedPositions, { r, c });
 
                 // Find if this piece is captured in the selected piece's paths
                 const captureSteps = selectedJumpPaths
@@ -1012,6 +1117,44 @@ export default function GameRoom() {
             </div>
           </div>
         </div>
+
+        {/* Replay Controls */}
+        {gameState.history.length > 0 && (
+          <div className={styles.replayControls}>
+            <button
+              className={styles.replayNavBtn}
+              onClick={handleReplayFirst}
+              disabled={replayIndex === 0}
+              title="В начало"
+            >
+              <ChevronsLeft size={18} />
+            </button>
+            <button
+              className={styles.replayNavBtn}
+              onClick={handleReplayPrev}
+              disabled={replayIndex === 0}
+              title="Назад"
+            >
+              <ChevronLeft size={18} />
+            </button>
+            <button
+              className={styles.replayNavBtn}
+              onClick={handleReplayNext}
+              disabled={replayIndex === null}
+              title="Вперед"
+            >
+              <ChevronRight size={18} />
+            </button>
+            <button
+              className={styles.replayNavBtn}
+              onClick={handleReplayLast}
+              disabled={replayIndex === null}
+              title="В реальное время"
+            >
+              <ChevronsRight size={18} />
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Right Area (Move History & Chat) */}
@@ -1026,7 +1169,22 @@ export default function GameRoom() {
               <History size={16} />
               <span>История ходов</span>
             </div>
-            {isHistoryMinimized ? <ChevronDown size={16} className={styles.chevronIcon} /> : <ChevronUp size={16} className={styles.chevronIcon} />}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+              {!isHistoryMinimized && gameState.history.length > 0 && (
+                <button
+                  className={styles.pdnExportBtn}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleExportPDN();
+                  }}
+                  title="Скачать PDN (.pdn)"
+                >
+                  <Download size={14} />
+                  <span>PDN</span>
+                </button>
+              )}
+              {isHistoryMinimized ? <ChevronDown size={16} className={styles.chevronIcon} /> : <ChevronUp size={16} className={styles.chevronIcon} />}
+            </div>
           </div>
           {!isHistoryMinimized && (
             <div className={styles.movesScroll}>
@@ -1034,15 +1192,30 @@ export default function GameRoom() {
                 <div className={styles.noMovesText}>Ходов еще не сделано</div>
               ) : (
                 <div className={styles.movesGrid}>
-                  {formattedMoves.map((m, idx) => (
-                    <div key={`history-row-${idx}`} style={{ display: 'contents' }}>
-                      <span className={styles.moveIndex}>{idx + 1}.</span>
-                      <span className={styles.moveNotation}>{m.white}</span>
-                      <span className={styles.moveNotation} style={{ color: '#ffa3a3' }}>
-                        {m.black}
-                      </span>
-                    </div>
-                  ))}
+                  {formattedMoves.map((m, idx) => {
+                    const whiteIndex = 2 * idx + 1;
+                    const blackIndex = 2 * idx + 2;
+                    return (
+                      <div key={`history-row-${idx}`} style={{ display: 'contents' }}>
+                        <span className={styles.moveIndex}>{idx + 1}.</span>
+                        <span 
+                          className={`${styles.moveNotation} ${styles.moveNotationInteractive} ${replayIndex === whiteIndex ? styles.moveNotationActive : ''}`}
+                          onClick={() => setReplayIndex(whiteIndex)}
+                        >
+                          {m.white}
+                        </span>
+                        {m.black && (
+                          <span 
+                            className={`${styles.moveNotation} ${styles.moveNotationInteractive} ${replayIndex === blackIndex ? styles.moveNotationActive : ''}`}
+                            style={{ color: '#ffa3a3' }}
+                            onClick={() => setReplayIndex(blackIndex)}
+                          >
+                            {m.black}
+                          </span>
+                        )}
+                      </div>
+                    );
+                  })}
                 </div>
               )}
             </div>

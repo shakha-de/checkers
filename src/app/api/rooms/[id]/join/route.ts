@@ -91,8 +91,9 @@ export async function POST(
       token: existingToken || newToken,
       color: 'spectator',
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : 'Failed to join room';
     console.error('Error joining room', error);
-    return NextResponse.json({ error: error?.message || 'Failed to join room' }, { status: 500 });
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }

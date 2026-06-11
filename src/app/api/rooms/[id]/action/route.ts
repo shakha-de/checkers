@@ -49,7 +49,7 @@ export async function POST(
       gameState.score = { w: 0, b: 0, draws: 0 };
     }
     let status = room.status;
-    let chat = [...room.chat];
+    const chat = [...room.chat];
 
     switch (actionType) {
       case 'move': {
@@ -290,8 +290,9 @@ export async function POST(
     }
 
     return NextResponse.json({ success: true });
-  } catch (error: any) {
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : 'Failed to process action';
     console.error('Error handling action', error);
-    return NextResponse.json({ error: error?.message || 'Failed to process action' }, { status: 500 });
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }

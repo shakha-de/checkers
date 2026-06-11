@@ -1035,3 +1035,123 @@
   border-color: rgba(229, 62, 62, 0.6) !important;
 }
 
+/* Replay Mode & PDN Exporter Styles */
+.replayBanner {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: rgba(212, 175, 55, 0.08);
+  border: 1px solid rgba(212, 175, 55, 0.3);
+  box-shadow: 0 4px 20px rgba(212, 175, 55, 0.15);
+  border-radius: 12px;
+  padding: 0.75rem 1.25rem;
+  font-weight: 700;
+  font-size: 0.95rem;
+  color: #ebd9b4;
+  margin-top: 0.5rem;
+  animation: dropIn 0.3s ease;
+}
+
+.replayBannerBtn {
+  background: linear-gradient(135deg, #d4af37 0%, #b89225 100%);
+  color: #0b0a13;
+  border: none;
+  border-radius: 8px;
+  padding: 0.4rem 1rem;
+  font-size: 0.8rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.replayBannerBtn:hover {
+  filter: brightness(1.1);
+  box-shadow: 0 0 10px rgba(212, 175, 55, 0.4);
+}
+
+.replayControls {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 1rem;
+  margin-top: 1rem;
+  background: rgba(14, 11, 26, 0.4);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 12px;
+  padding: 0.5rem 1rem;
+  width: fit-content;
+  margin-left: auto;
+  margin-right: auto;
+  backdrop-filter: blur(10px);
+}
+
+.replayNavBtn {
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  color: var(--foreground);
+  border-radius: 8px;
+  width: 38px;
+  height: 38px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.replayNavBtn:hover:not(:disabled) {
+  background: rgba(212, 175, 55, 0.1);
+  border-color: var(--primary);
+  color: var(--primary);
+  box-shadow: 0 0 8px rgba(212, 175, 55, 0.3);
+}
+
+.replayNavBtn:disabled {
+  opacity: 0.25;
+  cursor: not-allowed;
+}
+
+.pdnExportBtn {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: var(--foreground);
+  border-radius: 6px;
+  padding: 0.25rem 0.55rem;
+  font-size: 0.75rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  box-sizing: border-box;
+}
+
+.pdnExportBtn:hover {
+  background: rgba(212, 175, 55, 0.15);
+  border-color: var(--primary);
+  color: var(--primary);
+  box-shadow: 0 0 6px rgba(212, 175, 55, 0.2);
+}
+
+.moveNotationInteractive {
+  cursor: pointer;
+  padding: 2px 6px;
+  border-radius: 4px;
+  transition: all 0.2s ease;
+  box-sizing: border-box;
+}
+
+.moveNotationInteractive:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--primary) !important;
+}
+
+.moveNotationActive {
+  background: rgba(212, 175, 55, 0.2) !important;
+  color: var(--primary) !important;
+  box-shadow: 0 0 6px rgba(212, 175, 55, 0.2);
+  border: 1px solid rgba(212, 175, 55, 0.4);
+}
+
+
