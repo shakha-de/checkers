@@ -381,43 +381,85 @@
 }
 
 /* Privacy Toggle */
-.privacyToggle {
-  display: flex;
-  align-items: center;
+.privacyGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
   gap: 0.75rem;
+}
+
+.privacyCard {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 1.1rem 0.75rem;
+  border-radius: 14px;
+  border: 2px solid rgba(255, 255, 255, 0.08);
   background: rgba(255, 255, 255, 0.02);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 12px;
-  padding: 0.85rem 1rem;
   cursor: pointer;
   transition: all 0.2s ease;
   user-select: none;
+  text-align: center;
 }
 
-.privacyToggle:hover {
-  background: rgba(255, 255, 255, 0.05);
-  border-color: rgba(255, 255, 255, 0.15);
+.privacyCard:hover {
+  background: rgba(255, 255, 255, 0.06);
+  border-color: rgba(255, 255, 255, 0.18);
+  transform: translateY(-2px);
 }
 
-.privacyTogglePrivate {
+.privacyCardActive {
   border-color: var(--primary);
-  background: rgba(212, 175, 55, 0.05);
+  background: rgba(212, 175, 55, 0.08);
+  box-shadow: 0 0 0 3px rgba(212, 175, 55, 0.15), 0 4px 16px rgba(212, 175, 55, 0.12);
 }
 
-.privacyToggleText {
+.privacyCardPublicActive {
+  border-color: #38a169;
+  background: rgba(56, 161, 105, 0.08);
+  box-shadow: 0 0 0 3px rgba(56, 161, 105, 0.15), 0 4px 16px rgba(56, 161, 105, 0.1);
+}
+
+.privacyCardIcon {
   display: flex;
-  flex-direction: column;
-  gap: 0.15rem;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.05);
+  margin-bottom: 0.15rem;
+  transition: background 0.2s ease;
 }
 
-.privacyToggleTitle {
+.privacyCardActive .privacyCardIcon {
+  background: rgba(212, 175, 55, 0.15);
+  color: var(--primary);
+}
+
+.privacyCardPublicActive .privacyCardIcon {
+  background: rgba(56, 161, 105, 0.15);
+  color: #68d391;
+}
+
+.privacyCardTitle {
   font-size: 0.85rem;
   font-weight: 700;
+  letter-spacing: 0.01em;
 }
 
-.privacyToggleDesc {
-  font-size: 0.75rem;
+.privacyCardActive .privacyCardTitle {
+  color: var(--primary);
+}
+
+.privacyCardPublicActive .privacyCardTitle {
+  color: #68d391;
+}
+
+.privacyCardDesc {
+  font-size: 0.7rem;
   color: var(--text-muted);
+  line-height: 1.4;
 }
 
 /* Lobby Card */

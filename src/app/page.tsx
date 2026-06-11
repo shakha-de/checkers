@@ -283,21 +283,28 @@ export default function Home() {
 
             {/* Privacy Switch */}
             <div className={styles.formGroup}>
-              <label className={styles.label}>Настройки конфиденциальности</label>
-              <div
-                className={`${styles.privacyToggle} ${isPrivate ? styles.privacyTogglePrivate : ''}`}
-                onClick={() => setIsPrivate(!isPrivate)}
-              >
-                {isPrivate ? <Lock size={18} /> : <Unlock size={18} />}
-                <div className={styles.privacyToggleText}>
-                  <span className={styles.privacyToggleTitle}>
-                    {isPrivate ? 'Приватная игра' : 'Публичная игра'}
-                  </span>
-                  <span className={styles.privacyToggleDesc}>
-                    {isPrivate 
-                      ? 'Доступ только по прямой ссылке' 
-                      : 'Будет отображаться в общем списке игр'}
-                  </span>
+              <label className={styles.label}>Конфиденциальность</label>
+              <div className={styles.privacyGrid}>
+                <div
+                  className={`${styles.privacyCard} ${isPrivate ? styles.privacyCardActive : ''}`}
+                  onClick={() => setIsPrivate(true)}
+                >
+                  <div className={styles.privacyCardIcon}>
+                    <Lock size={22} />
+                  </div>
+                  <span className={styles.privacyCardTitle}>Приватная</span>
+                  <span className={styles.privacyCardDesc}>Только по ссылке</span>
+                </div>
+
+                <div
+                  className={`${styles.privacyCard} ${!isPrivate ? styles.privacyCardPublicActive : ''}`}
+                  onClick={() => setIsPrivate(false)}
+                >
+                  <div className={styles.privacyCardIcon}>
+                    <Unlock size={22} />
+                  </div>
+                  <span className={styles.privacyCardTitle}>Публичная</span>
+                  <span className={styles.privacyCardDesc}>Видна в лобби</span>
                 </div>
               </div>
             </div>
