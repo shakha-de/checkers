@@ -24,6 +24,8 @@ export interface Move {
   capturedPiece?: Position;
 }
 
+export type GameMode = 'standard' | 'giveaway';
+
 export interface GameState {
   board: Board;
   turn: Player;
@@ -33,6 +35,7 @@ export interface GameState {
   winner: Player | 'draw' | null;
   drawProposedBy: Player | null;
   rematchProposedBy?: Player | null;
+  mode?: GameMode;
   score?: {
     w: number;
     b: number;
@@ -359,6 +362,17 @@ export function hasAnyLegalMoves(board: Board, player: Player): boolean {
   return moves.length > 0;
 }
 
+// Count the number of pieces a player has on the board
+export function countPlayerPieces(board: Board, player: Player): number {
+  let count = 0;
+  for (let r = 0; r < 8; r++) {
+    for (let c = 0; c < 8; c++) {
+      if (board[r][c]?.player === player) count++;
+    }
+  }
+  return count;
+}
+
 // Execute a move on the board
 // Returns the updated board, and whether the turn should continue (in case of multi-jump)
 export function makeMove(
@@ -447,9 +461,22 @@ export function makeMove(
   // Check win/loss conditions for the NEXT player
   let nextWinner: Player | 'draw' | null = null;
   if (turnEnded) {
-    if (!hasAnyLegalMoves(nextBoard, nextTurn)) {
-      // If the next player has no moves, the current player wins!
-      nextWinner = state.turn;
+    const isGiveaway = state.mode === 'giveaway';
+    if (isGiveaway) {
+      // Giveaway: you WIN by losing all your pieces or having no moves
+      const prevPlayerPieces = countPlayerPieces(nextBoard, state.turn);
+      if (prevPlayerPieces === 0) {
+        // Previous player gave away all their pieces — they win!
+        nextWinner = state.turn;
+      } else if (!hasAnyLegalMoves(nextBoard, nextTurn)) {
+        // Next player has no moves — they win!
+        nextWinner = nextTurn;
+      }
+    } else {
+      // Standard: next player has no legal moves => current player wins
+      if (!hasAnyLegalMoves(nextBoard, nextTurn)) {
+        nextWinner = state.turn;
+      }
     }
   }
 
@@ -462,6 +489,7 @@ export function makeMove(
     history: nextHistory,
     winner: nextWinner || state.winner,
     drawProposedBy: null, // Clear draw proposal on any move
+    mode: state.mode,     // Preserve game mode
   };
 
   return {

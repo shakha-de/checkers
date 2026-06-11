@@ -497,7 +497,7 @@ export default function GameRoom() {
     if (!gameState) return;
     const pdnContent = exportToPDN({
       game_state: gameState,
-      players: rawPlayers,
+      players: rawPlayers ?? { w: null, b: null },
       id: roomId,
     });
     const blob = new Blob([pdnContent], { type: 'text/plain;charset=utf-8' });
@@ -571,7 +571,7 @@ export default function GameRoom() {
     );
   }
 
-  const { board, turn, activePiece, capturedPositions, winner, drawProposedBy, score } = gameState;
+  const { board, turn, activePiece, capturedPositions, winner, drawProposedBy, score, mode } = gameState;
 
   const isReplaying = replayIndex !== null;
   const activeBoard = isReplaying 
@@ -756,10 +756,14 @@ export default function GameRoom() {
               {winner === 'draw'
                 ? 'Партия закончилась мирным соглашением сторон.'
                 : winner === role
-                ? 'Отличная игра! Вы разгромили соперника.'
+                ? (mode === 'giveaway'
+                    ? 'Вы первыми отдали все шашки или остались без ходов. Победа!'
+                    : 'Отличная игра! Вы разгромили соперника.')
                 : role === 'spectator'
                 ? 'Партия успешно завершена.'
-                : 'Не расстраивайтесь, в следующей партии вам обязательно повезет!'}
+                : (mode === 'giveaway'
+                    ? 'Соперник успел избавиться от всех шашек. Не расстраивайтесь!'
+                    : 'Не расстраивайтесь, в следующей партии вам обязательно повезет!')}
             </p>
             {role !== 'spectator' && (
               <>
@@ -817,6 +821,9 @@ export default function GameRoom() {
                   <Image src="/logo.png" width={24} height={24} className={styles.logoMini} alt="Logo" priority />
                 </Link>
                 <span>Комната {roomId}</span>
+                {mode === 'giveaway' && (
+                  <span className={styles.modeBadge}>Поддавки</span>
+                )}
               </div>
               <span className={styles.roomStatusText}>
                 {role === 'w' && 'Вы играете за Белых (внизу)'}
@@ -850,13 +857,15 @@ export default function GameRoom() {
             <div className={styles.gameControls}>
               {role !== 'spectator' && !winner && (
                 <>
-                  <button
-                    className={styles.controlBtn}
-                    onClick={() => triggerAction('proposeDraw')}
-                    disabled={drawProposedBy === role}
-                  >
-                    Предложить ничью
-                  </button>
+                  {mode !== 'giveaway' && (
+                    <button
+                      className={styles.controlBtn}
+                      onClick={() => triggerAction('proposeDraw')}
+                      disabled={drawProposedBy === role}
+                    >
+                      Предложить ничью
+                    </button>
+                  )}
                   <button
                     className={`${styles.controlBtn} ${styles.controlBtnResign}`}
                     onClick={() => {

@@ -4,7 +4,7 @@ import { supabase } from '@/lib/supabase';
 
 export async function POST(request: Request) {
   try {
-    const { creatorColor, isPrivate, opponentType, aiDifficulty } = await request.json();
+    const { creatorColor, isPrivate, opponentType, aiDifficulty, gameMode } = await request.json();
     
     // Generate simple readable room ID
     const roomId = Math.random().toString(36).substring(2, 8).toUpperCase();
@@ -46,6 +46,7 @@ export async function POST(request: Request) {
           drawProposedBy: null,
           score: { w: 0, b: 0, draws: 0 },
           isPrivate: !!isPrivate,
+          mode: gameMode === 'giveaway' ? 'giveaway' : 'standard',
         },
         players: {
           w: wPlayer,
@@ -56,8 +57,8 @@ export async function POST(request: Request) {
             id: 'sys-start',
             sender: 'system',
             text: opponentType === 'ai'
-              ? `Игра против ИИ (${aiDifficulty === 'easy' ? 'Легкий' : aiDifficulty === 'hard' ? 'Сложный' : 'Средний'}) началась. Ход белых.`
-              : 'Игра создана. Ожидание соперника...',
+              ? `Игра против ИИ (${aiDifficulty === 'easy' ? 'Легкий' : aiDifficulty === 'hard' ? 'Сложный' : 'Средний'}) началась${gameMode === 'giveaway' ? ' — режим Поддавки' : ''}. Ход белых.`
+              : `Игра создана${gameMode === 'giveaway' ? ' (режим Поддавки)' : ''}. Ожидание соперника...`,
             timestamp: Date.now(),
           }
         ],

@@ -206,6 +206,7 @@ export async function POST(
             winner: null,
             drawProposedBy: null,
             rematchProposedBy: null,
+            mode: gameState.mode,   // Keep same game variant
             score: gameState.score, // Preserve score
           };
           status = 'active';

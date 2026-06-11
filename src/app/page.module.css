@@ -584,6 +584,18 @@
 .roomTime {
   font-size: 0.7rem;
   color: var(--text-muted);
+  margin-left: auto;
+}
+
+.modeBadgeLobby {
+  font-size: 0.65rem;
+  font-weight: 700;
+  padding: 0.15rem 0.5rem;
+  border-radius: 20px;
+  background: linear-gradient(135deg, #7c3aed, #db2777);
+  color: #fff;
+  letter-spacing: 0.03em;
+  flex-shrink: 0;
 }
 
 .roomStatusDesc {

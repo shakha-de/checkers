@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
-import { Swords, Loader2, Lock, Unlock, Eye, Users, Trophy } from 'lucide-react';
+import { Swords, Loader2, Lock, Unlock, Eye, Users, Trophy, FlipHorizontal2 } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import styles from './page.module.css';
 
@@ -17,6 +17,7 @@ interface Room {
   };
   game_state: {
     turn: 'w' | 'b';
+    mode?: 'standard' | 'giveaway';
     score?: {
       w: number;
       b: number;
@@ -29,10 +30,11 @@ interface Room {
 export default function Home() {
   const router = useRouter();
   const [color, setColor] = useState<'random' | 'w' | 'b'>('random');
-  const [isPrivate, setIsPrivate] = useState(false);
+  const [isPrivate, setIsPrivate] = useState(true);
   const [loading, setLoading] = useState(false);
   const [opponentType, setOpponentType] = useState<'player' | 'ai'>('player');
   const [aiDifficulty, setAiDifficulty] = useState<'easy' | 'medium' | 'hard'>('medium');
+  const [gameMode, setGameMode] = useState<'standard' | 'giveaway'>('standard');
 
   // Lobby states
   const [rooms, setRooms] = useState<Room[]>([]);
@@ -47,7 +49,7 @@ export default function Home() {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ creatorColor: color, isPrivate, opponentType, aiDifficulty }),
+        body: JSON.stringify({ creatorColor: color, isPrivate, opponentType, aiDifficulty, gameMode }),
       });
 
       if (!res.ok) {
@@ -215,6 +217,37 @@ export default function Home() {
               </div>
             </div>
 
+            {/* Game Variant Selector */}
+            <div className={styles.formGroup}>
+              <label className={styles.label}>Вариант игры</label>
+              <div className={styles.opponentSelector}>
+                <div
+                  className={`${styles.opponentOption} ${
+                    gameMode === 'standard' ? styles.opponentOptionActive : ''
+                  }`}
+                  onClick={() => setGameMode('standard')}
+                >
+                  <Swords size={16} />
+                  <span className={styles.opponentOptionText}>Русские шашки</span>
+                </div>
+
+                <div
+                  className={`${styles.opponentOption} ${
+                    gameMode === 'giveaway' ? styles.opponentOptionActive : ''
+                  }`}
+                  onClick={() => setGameMode('giveaway')}
+                >
+                  <FlipHorizontal2 size={16} />
+                  <span className={styles.opponentOptionText}>Поддавки</span>
+                </div>
+              </div>
+              {gameMode === 'giveaway' && (
+                <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '0.5rem', lineHeight: 1.5 }}>
+                  Цель — отдать все свои шашки или остаться без ходов.
+                </p>
+              )}
+            </div>
+
             {/* AI Difficulty Selector */}
             {opponentType === 'ai' && (
               <div className={styles.formGroup}>
@@ -372,6 +405,9 @@ export default function Home() {
                         <div className={styles.roomInfoCol}>
                           <div className={styles.roomIdRow}>
                             <span className={styles.roomName}>Комната {room.id}</span>
+                            {room.game_state?.mode === 'giveaway' && (
+                              <span className={styles.modeBadgeLobby}>Поддавки</span>
+                            )}
                             <span className={styles.roomTime}>{elapsed}</span>
                           </div>
                           

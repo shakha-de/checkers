@@ -1035,6 +1035,27 @@
   border-color: rgba(229, 62, 62, 0.6) !important;
 }
 
+/* Game Mode Badge */
+.modeBadge {
+  display: inline-flex;
+  align-items: center;
+  font-size: 0.65rem;
+  font-weight: 800;
+  padding: 0.15rem 0.55rem;
+  border-radius: 20px;
+  background: linear-gradient(135deg, #7c3aed, #db2777);
+  color: #fff;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  flex-shrink: 0;
+  animation: pulseBadge 2.5s ease-in-out infinite;
+}
+
+@keyframes pulseBadge {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(124, 58, 237, 0.4); }
+  50%       { box-shadow: 0 0 0 5px rgba(124, 58, 237, 0); }
+}
+
 /* Replay Mode & PDN Exporter Styles */
 .replayBanner {
   display: flex;
