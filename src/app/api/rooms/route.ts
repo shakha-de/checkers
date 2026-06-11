@@ -4,7 +4,7 @@ import { supabase } from '@/lib/supabase';
 
 export async function POST(request: Request) {
   try {
-    const { creatorColor } = await request.json();
+    const { creatorColor, isPrivate } = await request.json();
     
     // Generate simple readable room ID
     const roomId = Math.random().toString(36).substring(2, 8).toUpperCase();
@@ -39,6 +39,7 @@ export async function POST(request: Request) {
           winner: null,
           drawProposedBy: null,
           score: { w: 0, b: 0, draws: 0 },
+          isPrivate: !!isPrivate,
         },
         players: {
           w: wPlayer,
@@ -65,8 +66,9 @@ export async function POST(request: Request) {
       creatorColor: chosenColor,
       creatorToken,
     });
-  } catch (error: any) {
+  } catch (error) {
     console.error('Error creating room', error);
-    return NextResponse.json({ error: error?.message || 'Failed to create room' }, { status: 500 });
+    const errorMessage = error instanceof Error ? error.message : 'Failed to create room';
+    return NextResponse.json({ error: errorMessage }, { status: 500 });
   }
 }

@@ -9,12 +9,15 @@ import {
   ArrowLeft,
   Check,
   X,
-  Swords,
   Users,
   MessageSquare,
   History,
   Trophy,
+  ChevronUp,
+  ChevronDown,
 } from 'lucide-react';
+import Link from 'next/link';
+import Image from 'next/image';
 import confetti from 'canvas-confetti';
 import { GameState, Position, Move, getValidMoves, posEq, hasPos, colToLetter, rowToNumber, Piece, getCheckerJumps, getDamkaJumps, shouldPromote } from '@/lib/checkers';
 import { supabase } from '@/lib/supabase';
@@ -129,6 +132,8 @@ export default function GameRoom() {
   // UI state
   const [chatText, setChatText] = useState('');
   const [copied, setCopied] = useState(false);
+  const [isChatMinimized, setIsChatMinimized] = useState(false);
+  const [isHistoryMinimized, setIsHistoryMinimized] = useState(false);
 
   // Refs for auto scrolling chat
   const chatScrollRef = useRef<HTMLDivElement>(null);
@@ -648,7 +653,9 @@ export default function GameRoom() {
           <div className={styles.headerTop}>
             <div className={styles.roomInfo}>
               <div className={styles.roomTitle}>
-                <Swords size={20} className="damkaCrown" />
+                <Link href="/" className={styles.logoLink} title="На главную">
+                  <Image src="/logo.png" width={24} height={24} className={styles.logoMini} alt="Logo" priority />
+                </Link>
                 <span>Комната {roomId}</span>
               </div>
               <span className={styles.roomStatusText}>
@@ -914,68 +921,86 @@ export default function GameRoom() {
       {/* Right Area (Move History & Chat) */}
       <div className={styles.sidebar}>
         {/* Move History */}
-        <div className={`${styles.historyPanel} glass`}>
-          <div className={styles.panelTitle}>
-            <History size={16} />
-            <span>История ходов</span>
+        <div className={`${styles.historyPanel} glass ${isHistoryMinimized ? styles.panelMinimized : ''}`}>
+          <div 
+            className={`${styles.panelTitle} ${styles.panelTitleInteractive}`} 
+            onClick={() => setIsHistoryMinimized(!isHistoryMinimized)}
+          >
+            <div className={styles.panelTitleText}>
+              <History size={16} />
+              <span>История ходов</span>
+            </div>
+            {isHistoryMinimized ? <ChevronDown size={16} className={styles.chevronIcon} /> : <ChevronUp size={16} className={styles.chevronIcon} />}
           </div>
-          <div className={styles.movesScroll}>
-            {formattedMoves.length === 0 ? (
-              <div className={styles.noMovesText}>Ходов еще не сделано</div>
-            ) : (
-              <div className={styles.movesGrid}>
-                {formattedMoves.map((m, idx) => (
-                  <div key={`history-row-${idx}`} style={{ display: 'contents' }}>
-                    <span className={styles.moveIndex}>{idx + 1}.</span>
-                    <span className={styles.moveNotation}>{m.white}</span>
-                    <span className={styles.moveNotation} style={{ color: '#ffa3a3' }}>
-                      {m.black}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
+          {!isHistoryMinimized && (
+            <div className={styles.movesScroll}>
+              {formattedMoves.length === 0 ? (
+                <div className={styles.noMovesText}>Ходов еще не сделано</div>
+              ) : (
+                <div className={styles.movesGrid}>
+                  {formattedMoves.map((m, idx) => (
+                    <div key={`history-row-${idx}`} style={{ display: 'contents' }}>
+                      <span className={styles.moveIndex}>{idx + 1}.</span>
+                      <span className={styles.moveNotation}>{m.white}</span>
+                      <span className={styles.moveNotation} style={{ color: '#ffa3a3' }}>
+                        {m.black}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
         </div>
 
         {/* Live Chat */}
-        <div className={`${styles.chatPanel} glass`}>
-          <div className={styles.panelTitle}>
-            <MessageSquare size={16} />
-            <span>Чат</span>
+        <div className={`${styles.chatPanel} glass ${isChatMinimized ? styles.panelMinimized : ''}`}>
+          <div 
+            className={`${styles.panelTitle} ${styles.panelTitleInteractive}`} 
+            onClick={() => setIsChatMinimized(!isChatMinimized)}
+          >
+            <div className={styles.panelTitleText}>
+              <MessageSquare size={16} />
+              <span>Чат</span>
+            </div>
+            {isChatMinimized ? <ChevronDown size={16} className={styles.chevronIcon} /> : <ChevronUp size={16} className={styles.chevronIcon} />}
           </div>
-          <div className={styles.chatScroll} ref={chatScrollRef}>
-            {chat.map((msg) => {
-              let senderClass = '';
-              if (msg.sender === 'w') senderClass = styles.chatSenderW;
-              else if (msg.sender === 'b') senderClass = styles.chatSenderB;
-              else if (msg.sender === 'system') senderClass = styles.chatSystem;
-              else senderClass = styles.chatSenderSpectator;
+          {!isChatMinimized && (
+            <>
+              <div className={styles.chatScroll} ref={chatScrollRef}>
+                {chat.map((msg) => {
+                  let senderClass = '';
+                  if (msg.sender === 'w') senderClass = styles.chatSenderW;
+                  else if (msg.sender === 'b') senderClass = styles.chatSenderB;
+                  else if (msg.sender === 'system') senderClass = styles.chatSystem;
+                  else senderClass = styles.chatSenderSpectator;
 
-              return (
-                <div key={msg.id} className={`${styles.chatMessage} ${senderClass}`}>
-                  {msg.sender !== 'system' && (
-                    <div className={styles.chatLabel}>
-                      {msg.sender === 'w' ? 'Белые' : msg.sender === 'b' ? 'Черные' : 'Зритель'}
+                  return (
+                    <div key={msg.id} className={`${styles.chatMessage} ${senderClass}`}>
+                      {msg.sender !== 'system' && (
+                        <div className={styles.chatLabel}>
+                          {msg.sender === 'w' ? 'Белые' : msg.sender === 'b' ? 'Черные' : 'Зритель'}
+                        </div>
+                      )}
+                      <div>{msg.text}</div>
                     </div>
-                  )}
-                  <div>{msg.text}</div>
-                </div>
-              );
-            })}
-          </div>
-          <form className={styles.chatForm} onSubmit={handleSendChat}>
-            <input
-              type="text"
-              className={styles.chatInput}
-              placeholder="Напишите сообщение..."
-              value={chatText}
-              onChange={(e) => setChatText(e.target.value)}
-            />
-            <button type="submit" className={styles.chatSendBtn}>
-              <Send size={16} />
-            </button>
-          </form>
+                  );
+                })}
+              </div>
+              <form className={styles.chatForm} onSubmit={handleSendChat}>
+                <input
+                  type="text"
+                  className={styles.chatInput}
+                  placeholder="Напишите сообщение..."
+                  value={chatText}
+                  onChange={(e) => setChatText(e.target.value)}
+                />
+                <button type="submit" className={styles.chatSendBtn}>
+                  <Send size={16} />
+                </button>
+              </form>
+            </>
+          )}
         </div>
       </div>
     </div>
