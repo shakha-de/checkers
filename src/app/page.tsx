@@ -31,6 +31,8 @@ export default function Home() {
   const [color, setColor] = useState<'random' | 'w' | 'b'>('random');
   const [isPrivate, setIsPrivate] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [opponentType, setOpponentType] = useState<'player' | 'ai'>('player');
+  const [aiDifficulty, setAiDifficulty] = useState<'easy' | 'medium' | 'hard'>('medium');
 
   // Lobby states
   const [rooms, setRooms] = useState<Room[]>([]);
@@ -45,7 +47,7 @@ export default function Home() {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ creatorColor: color, isPrivate }),
+        body: JSON.stringify({ creatorColor: color, isPrivate, opponentType, aiDifficulty }),
       });
 
       if (!res.ok) {
@@ -186,6 +188,65 @@ export default function Home() {
                 </div>
               </div>
             </div>
+
+            {/* Opponent Selector */}
+            <div className={styles.formGroup}>
+              <label className={styles.label}>Режим игры</label>
+              <div className={styles.opponentSelector}>
+                <div
+                  className={`${styles.opponentOption} ${
+                    opponentType === 'player' ? styles.opponentOptionActive : ''
+                  }`}
+                  onClick={() => setOpponentType('player')}
+                >
+                  <Users size={16} />
+                  <span className={styles.opponentOptionText}>Против Игрока</span>
+                </div>
+
+                <div
+                  className={`${styles.opponentOption} ${
+                    opponentType === 'ai' ? styles.opponentOptionActive : ''
+                  }`}
+                  onClick={() => setOpponentType('ai')}
+                >
+                  <Swords size={16} />
+                  <span className={styles.opponentOptionText}>Против ИИ</span>
+                </div>
+              </div>
+            </div>
+
+            {/* AI Difficulty Selector */}
+            {opponentType === 'ai' && (
+              <div className={styles.formGroup}>
+                <label className={styles.label}>Сложность ИИ</label>
+                <div className={styles.difficultySelector}>
+                  <div
+                    className={`${styles.difficultyOption} ${
+                      aiDifficulty === 'easy' ? styles.difficultyOptionActiveEasy : ''
+                    }`}
+                    onClick={() => setAiDifficulty('easy')}
+                  >
+                    Легкий
+                  </div>
+                  <div
+                    className={`${styles.difficultyOption} ${
+                      aiDifficulty === 'medium' ? styles.difficultyOptionActiveMedium : ''
+                    }`}
+                    onClick={() => setAiDifficulty('medium')}
+                  >
+                    Средний
+                  </div>
+                  <div
+                    className={`${styles.difficultyOption} ${
+                      aiDifficulty === 'hard' ? styles.difficultyOptionActiveHard : ''
+                    }`}
+                    onClick={() => setAiDifficulty('hard')}
+                  >
+                    Сложный
+                  </div>
+                </div>
+              </div>
+            )}
 
             {/* Privacy Switch */}
             <div className={styles.formGroup}>

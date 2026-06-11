@@ -26,6 +26,16 @@ export async function POST(
     if (room.players.w === token) playerColor = 'w';
     else if (room.players.b === token) playerColor = 'b';
 
+    // Support playing against AI: if it is the AI's turn and the request is made by the human player,
+    // temporarily authorize playerColor as the AI color.
+    const activeTurn = room.game_state.turn;
+    const isAITurn = (activeTurn === 'w' && room.players.w?.startsWith('ai_')) ||
+                     (activeTurn === 'b' && room.players.b?.startsWith('ai_'));
+    
+    if (isAITurn && playerColor && playerColor !== activeTurn) {
+      playerColor = activeTurn;
+    }
+
     if (!playerColor && actionType !== 'chat') {
       // Spectators can only chat, they cannot make moves or resign
       return NextResponse.json({ error: 'Unauthorized action' }, { status: 403 });
@@ -182,8 +192,10 @@ export async function POST(
         if (!gameState.winner) return NextResponse.json({ error: 'Cannot restart active game' }, { status: 400 });
 
         const opponentColor = playerColor === 'w' ? 'b' : 'w';
+        const isOpponentAI = (opponentColor === 'w' && room.players.w?.startsWith('ai_')) ||
+                             (opponentColor === 'b' && room.players.b?.startsWith('ai_'));
 
-        if (gameState.rematchProposedBy === opponentColor) {
+        if (gameState.rematchProposedBy === opponentColor || isOpponentAI) {
           // Both agreed, reset board and status
           gameState = {
             board: initializeBoard(),

@@ -4,7 +4,7 @@ import { supabase } from '@/lib/supabase';
 
 export async function POST(request: Request) {
   try {
-    const { creatorColor, isPrivate } = await request.json();
+    const { creatorColor, isPrivate, opponentType, aiDifficulty } = await request.json();
     
     // Generate simple readable room ID
     const roomId = Math.random().toString(36).substring(2, 8).toUpperCase();
@@ -22,8 +22,14 @@ export async function POST(request: Request) {
     
     if (chosenColor === 'w') {
       wPlayer = creatorToken;
+      if (opponentType === 'ai') {
+        bPlayer = `ai_${aiDifficulty || 'medium'}`;
+      }
     } else {
       bPlayer = creatorToken;
+      if (opponentType === 'ai') {
+        wPlayer = `ai_${aiDifficulty || 'medium'}`;
+      }
     }
 
     const { error } = await supabase
@@ -49,11 +55,13 @@ export async function POST(request: Request) {
           {
             id: 'sys-start',
             sender: 'system',
-            text: 'Игра создана. Ожидание соперника...',
+            text: opponentType === 'ai'
+              ? `Игра против ИИ (${aiDifficulty === 'easy' ? 'Легкий' : aiDifficulty === 'hard' ? 'Сложный' : 'Средний'}) началась. Ход белых.`
+              : 'Игра создана. Ожидание соперника...',
             timestamp: Date.now(),
           }
         ],
-        status: 'waiting',
+        status: opponentType === 'ai' ? 'active' : 'waiting',
       });
 
     if (error) {

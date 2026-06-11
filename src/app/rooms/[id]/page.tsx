@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import {
   Crown,
@@ -117,9 +117,10 @@ export default function GameRoom() {
   const [token, setToken] = useState<string | null>(null);
   const [role, setRole] = useState<'w' | 'b' | 'spectator' | null>(null);
   const [gameState, setGameState] = useState<GameState | null>(null);
-  const [players, setPlayers] = useState<{ w: boolean; b: boolean } | null>(null);
   const [chat, setChat] = useState<ChatMessage[]>([]);
   const [status, setStatus] = useState<'waiting' | 'active' | 'finished' | null>(null);
+  const [rawPlayers, setRawPlayers] = useState<{ w: string | null; b: string | null } | null>(null);
+  const [aiCalculating, setAiCalculating] = useState(false);
   
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -137,6 +138,68 @@ export default function GameRoom() {
 
   // Refs for auto scrolling chat
   const chatScrollRef = useRef<HTMLDivElement>(null);
+
+  // Send chat message
+  const handleSendChat = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!chatText.trim()) return;
+    triggerAction('chat', { text: chatText });
+    setChatText('');
+  };
+
+  // Perform standard game actions
+  const triggerAction = useCallback(async (actionType: string, data: any = {}) => {
+    try {
+      const res = await fetch(`/api/rooms/${roomId}/action`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token, actionType, data }),
+      });
+      if (!res.ok) {
+        const errData = await res.json();
+        alert(errData.error || 'Ошибка действия');
+      }
+    } catch (err) {
+      console.error(err);
+      alert('Не удалось выполнить действие');
+    }
+  }, [roomId, token]);
+
+  // Hook to handle AI player moves
+  useEffect(() => {
+    if (!gameState || status !== 'active' || !rawPlayers || role === 'spectator' || !role) return;
+
+    const currentTurn = gameState.turn;
+    const opponentToken = currentTurn === 'w' ? rawPlayers.w : rawPlayers.b;
+    const isOpponentAI = opponentToken?.startsWith('ai_') || false;
+
+    if (!isOpponentAI || currentTurn === role) return;
+
+    const difficulty = opponentToken!.replace('ai_', '') as 'easy' | 'medium' | 'hard';
+
+    const calculateAndMove = async () => {
+      // Set calculating state asynchronously to avoid React state in effect warnings
+      Promise.resolve().then(() => setAiCalculating(true));
+      
+      // Delay the calculation slightly to make it feel natural and give a sense of "thinking"
+      await new Promise(resolve => setTimeout(resolve, 800));
+
+      try {
+        const { getBestMove } = await import('@/lib/ai');
+        const bestMove = getBestMove(gameState, difficulty);
+
+        if (bestMove) {
+          await triggerAction('move', { move: bestMove });
+        }
+      } catch (err) {
+        console.error('AI calculation failed:', err);
+      } finally {
+        Promise.resolve().then(() => setAiCalculating(false));
+      }
+    };
+
+    calculateAndMove();
+  }, [gameState, status, rawPlayers, role, triggerAction]);
 
   // 1. Initial join and token setup
   useEffect(() => {
@@ -196,10 +259,7 @@ export default function GameRoom() {
 
         if (room) {
           setGameState(room.game_state);
-          setPlayers({
-            w: !!room.players.w,
-            b: !!room.players.b,
-          });
+          setRawPlayers(room.players);
           setChat(room.chat || []);
           setStatus(room.status);
         }
@@ -227,10 +287,7 @@ export default function GameRoom() {
           const updatedRoom = payload.new as any;
           if (updatedRoom) {
             setGameState(updatedRoom.game_state);
-            setPlayers({
-              w: !!updatedRoom.players.w,
-              b: !!updatedRoom.players.b,
-            });
+            setRawPlayers(updatedRoom.players);
             setChat(updatedRoom.chat || []);
             setStatus(updatedRoom.status);
           }
@@ -301,6 +358,8 @@ export default function GameRoom() {
     }
   }, [chat]);
 
+
+
   // 4. Confetti effect on victory
   useEffect(() => {
     if (gameState?.winner && role) {
@@ -320,7 +379,9 @@ export default function GameRoom() {
 
     const isCurrentMyTurn = gameState.turn === role && !gameState.winner;
     if (!isCurrentMyTurn) {
-      setPendingAutoTarget(null);
+      if (pendingAutoTarget !== null) {
+        Promise.resolve().then(() => setPendingAutoTarget(null));
+      }
       return;
     }
 
@@ -339,7 +400,9 @@ export default function GameRoom() {
 
     // If the active piece is already at the target, we are done
     if (posEq(activePiece, pendingAutoTarget)) {
-      setPendingAutoTarget(null);
+      if (pendingAutoTarget !== null) {
+        Promise.resolve().then(() => setPendingAutoTarget(null));
+      }
       return;
     }
 
@@ -387,7 +450,9 @@ export default function GameRoom() {
       }
     } else {
       // Target is no longer reachable, clear
-      setPendingAutoTarget(null);
+      if (pendingAutoTarget !== null) {
+        Promise.resolve().then(() => setPendingAutoTarget(null));
+      }
     }
   }, [gameState, pendingAutoTarget, role, token, roomId]);
 
@@ -538,31 +603,7 @@ export default function GameRoom() {
     }
   };
 
-  // Perform standard game actions
-  const triggerAction = async (actionType: string, data: any = {}) => {
-    try {
-      const res = await fetch(`/api/rooms/${roomId}/action`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ token, actionType, data }),
-      });
-      if (!res.ok) {
-        const errData = await res.json();
-        alert(errData.error || 'Ошибка действия');
-      }
-    } catch (err) {
-      console.error(err);
-      alert('Не удалось выполнить действие');
-    }
-  };
 
-  // Send chat message
-  const handleSendChat = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!chatText.trim()) return;
-    triggerAction('chat', { text: chatText });
-    setChatText('');
-  };
 
   // Formatting move history list
   const formattedMoves: { white: string; black: string }[] = [];
@@ -794,6 +835,7 @@ export default function GameRoom() {
                   ? 'Ваш ход!'
                   : `Ход ${turn === 'w' ? 'Белых' : 'Черных'}`}
                 {activePiece && ' (вы обязаны завершить серию взятий)'}
+                {aiCalculating && ' (ИИ думает...)'}
               </span>
             </div>
           )}
