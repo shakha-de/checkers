@@ -1175,4 +1175,75 @@
   border: 1px solid rgba(212, 175, 55, 0.4);
 }
 
+/* Responsive adjustments for phones and tablets */
+@media (max-width: 768px) {
+  .headerTop {
+    flex-direction: column;
+    align-items: center;
+    gap: 1.25rem;
+  }
 
+  .roomInfo {
+    align-items: center;
+    text-align: center;
+  }
+
+  .gameControls {
+    width: 100%;
+    justify-content: center;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+
+  .controlBtn {
+    flex: 1 1 calc(50% - 0.5rem);
+    justify-content: center;
+    font-size: 0.8rem;
+    padding: 0.6rem 0.8rem;
+  }
+}
+
+@media (max-width: 500px) {
+  .headerPanel {
+    padding: 1rem;
+  }
+
+  .boardWrapper {
+    padding: 0.5rem;
+  }
+
+  .invitePanel {
+    padding: 1rem;
+  }
+
+  .inviteInputContainer {
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+
+  .copyBtn {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .proposalBanner {
+    flex-direction: column;
+    align-items: stretch;
+    text-align: center;
+    gap: 0.75rem;
+    padding: 1rem;
+  }
+
+  .proposalButtons {
+    justify-content: center;
+  }
+  
+  .proposalAcceptBtn,
+  .proposalDeclineBtn {
+    flex: 1;
+    text-align: center;
+    justify-content: center;
+    display: flex;
+    align-items: center;
+  }
+}
