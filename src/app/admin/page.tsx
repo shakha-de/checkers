@@ -49,20 +49,10 @@ interface AdminRoom {
 
 export default function AdminDashboard() {
   const router = useRouter();
-  
-  const [passcode, setPasscode] = useState(() => {
-    if (typeof window !== 'undefined') {
-      return sessionStorage.getItem('checkers_admin_pass') || '';
-    }
-    return '';
-  });
-  
-  const [authenticated, setAuthenticated] = useState(() => {
-    if (typeof window !== 'undefined') {
-      return !!sessionStorage.getItem('checkers_admin_pass');
-    }
-    return false;
-  });
+
+  const [passcode, setPasscode] = useState('');
+
+  const [authenticated, setAuthenticated] = useState(false);
 
   const [authError, setAuthError] = useState('');
   
@@ -106,7 +96,14 @@ export default function AdminDashboard() {
       }
 
       if (!res.ok) {
-        throw new Error('Не удалось загрузить список комнат');
+        let message = 'Не удалось загрузить список комнат';
+        try {
+          const data = await res.json();
+          message = data.error || message;
+        } catch {
+          // Keep the default message if the response body is not JSON.
+        }
+        throw new Error(message);
       }
 
       const data = await res.json();
@@ -122,6 +119,17 @@ export default function AdminDashboard() {
       setLoading(false);
     }
   }, [passcode]);
+
+  // Fetch rooms on authentication
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const storedPasscode = sessionStorage.getItem('checkers_admin_pass');
+      if (storedPasscode) {
+        setPasscode(storedPasscode);
+        setAuthenticated(true);
+      }
+    }
+  }, []);
 
   // Fetch rooms on authentication
   useEffect(() => {
@@ -190,14 +198,33 @@ export default function AdminDashboard() {
     setActionLoading('bulk');
     const ids = Array.from(selectedIds);
     try {
-      await Promise.all(
-        ids.map(id =>
-          fetch(`/api/admin/rooms?id=${id}`, {
+      const responses = await Promise.all(
+        ids.map(async id => {
+          const response = await fetch(`/api/admin/rooms?id=${id}`, {
             method: 'DELETE',
             headers: { Authorization: passcode },
-          })
-        )
+          });
+
+          if (!response.ok) {
+            let message = 'Не удалось удалить выбранную комнату';
+            try {
+              const data = await response.json();
+              message = data.error || message;
+            } catch {
+              // Ignore JSON parsing failures and use the default message.
+            }
+
+            throw new Error(message);
+          }
+
+          return response;
+        })
       );
+
+      if (responses.length !== ids.length) {
+        throw new Error('Не удалось удалить все выбранные комнаты');
+      }
+
       setRooms(prev => prev.filter(r => !selectedIds.has(r.id)));
       if (inspectedRoom && selectedIds.has(inspectedRoom.id)) setInspectedRoom(null);
       setSelectedIds(new Set());

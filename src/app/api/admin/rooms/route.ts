@@ -1,5 +1,18 @@
 import { NextResponse } from 'next/server';
+import { createClient } from '@supabase/supabase-js';
 import { supabase } from '@/lib/supabase';
+
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://placeholder-project.supabase.co';
+const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+const adminSupabase = supabaseServiceRoleKey
+  ? createClient(supabaseUrl, supabaseServiceRoleKey, {
+      auth: {
+        autoRefreshToken: false,
+        persistSession: false,
+      },
+    })
+  : null;
 
 // Helper to verify admin passcode
 function isAuthorized(request: Request): boolean {
@@ -13,7 +26,6 @@ export async function GET(request: Request) {
     if (!isAuthorized(request)) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
-
     const { data: rooms, error } = await supabase
       .from('rooms')
       .select('*')
@@ -37,12 +49,19 @@ export async function DELETE(request: Request) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
+    if (!adminSupabase) {
+      return NextResponse.json(
+        { error: 'SUPABASE_SERVICE_ROLE_KEY is not configured' },
+        { status: 500 }
+      );
+    }
+
     const { searchParams } = new URL(request.url);
     const roomId = searchParams.get('id');
 
     if (roomId) {
       // Delete specific room
-      const { error } = await supabase
+      const { error } = await adminSupabase
         .from('rooms')
         .delete()
         .eq('id', roomId);
@@ -56,7 +75,7 @@ export async function DELETE(request: Request) {
       // Bulk delete rooms older than 24 hours
       const cutoff = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
       
-      const { error } = await supabase
+      const { error } = await adminSupabase
         .from('rooms')
         .delete()
         .lt('created_at', cutoff);
