@@ -966,3 +966,72 @@
     box-shadow: 0 0 8px rgba(0, 210, 255, 0.35);
   }
 }
+
+.rematchStatus {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px dashed rgba(212, 175, 55, 0.3);
+  border-radius: 10px;
+  padding: 0.8rem;
+  text-align: center;
+  width: 100%;
+}
+
+.rematchStatusText {
+  color: var(--primary);
+  font-weight: 700;
+  font-size: 0.9rem;
+  animation: pulseRematch 2s infinite ease-in-out;
+  display: block;
+}
+
+@keyframes pulseRematch {
+  0%, 100% {
+    opacity: 0.7;
+  }
+  50% {
+    opacity: 1;
+    text-shadow: 0 0 8px rgba(212, 175, 55, 0.4);
+  }
+}
+
+.rematchOfferGroup {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  width: 100%;
+  background: rgba(212, 175, 55, 0.05);
+  border: 1px solid rgba(212, 175, 55, 0.15);
+  border-radius: 12px;
+  padding: 1rem;
+  box-sizing: border-box;
+}
+
+.rematchOfferText {
+  color: #fff;
+  font-weight: 700;
+  font-size: 0.95rem;
+  text-align: center;
+}
+
+.rematchOfferButtons {
+  display: flex;
+  gap: 0.75rem;
+  width: 100%;
+}
+
+.rematchAcceptBtn {
+  flex: 1;
+}
+
+.rematchDeclineBtn {
+  flex: 1;
+  background: rgba(229, 62, 62, 0.1) !important;
+  border: 1px solid rgba(229, 62, 62, 0.3) !important;
+  color: #ffa3a3 !important;
+}
+
+.rematchDeclineBtn:hover {
+  background: rgba(229, 62, 62, 0.25) !important;
+  border-color: rgba(229, 62, 62, 0.6) !important;
+}
+

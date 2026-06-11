@@ -179,26 +179,58 @@ export async function POST(
 
       case 'restart': {
         if (!playerColor) return NextResponse.json({ error: 'Spectators cannot restart' }, { status: 403 });
-        
-        // Reset the board and state
-        gameState = {
-          board: initializeBoard(),
-          turn: 'w',
-          activePiece: null,
-          capturedPositions: [],
-          history: [],
-          winner: null,
-          drawProposedBy: null,
-          score: gameState.score, // Preserve score
-        };
-        status = 'active';
+        if (!gameState.winner) return NextResponse.json({ error: 'Cannot restart active game' }, { status: 400 });
 
-        chat.push({
-          id: sysMsgId(),
-          sender: 'system',
-          text: 'Игра перезапущена! Ход белых.',
-          timestamp: Date.now(),
-        });
+        const opponentColor = playerColor === 'w' ? 'b' : 'w';
+
+        if (gameState.rematchProposedBy === opponentColor) {
+          // Both agreed, reset board and status
+          gameState = {
+            board: initializeBoard(),
+            turn: 'w',
+            activePiece: null,
+            capturedPositions: [],
+            history: [],
+            winner: null,
+            drawProposedBy: null,
+            rematchProposedBy: null,
+            score: gameState.score, // Preserve score
+          };
+          status = 'active';
+
+          chat.push({
+            id: sysMsgId(),
+            sender: 'system',
+            text: 'Реванш принят! Игра перезапущена. Ход белых.',
+            timestamp: Date.now(),
+          });
+        } else {
+          // Propose rematch
+          gameState.rematchProposedBy = playerColor;
+          chat.push({
+            id: sysMsgId(),
+            sender: 'system',
+            text: `${playerColor === 'w' ? 'Белые' : 'Черные'} предлагают реванш.`,
+            timestamp: Date.now(),
+          });
+        }
+        break;
+      }
+
+      case 'declineRematch': {
+        if (!playerColor) return NextResponse.json({ error: 'Spectators cannot decline rematch' }, { status: 403 });
+        if (!gameState.winner) return NextResponse.json({ error: 'Game is not finished' }, { status: 400 });
+
+        const opponentColor = playerColor === 'w' ? 'b' : 'w';
+        if (gameState.rematchProposedBy === opponentColor) {
+          gameState.rematchProposedBy = null;
+          chat.push({
+            id: sysMsgId(),
+            sender: 'system',
+            text: `${playerColor === 'w' ? 'Белые' : 'Черные'} отклонили предложение о реванше.`,
+            timestamp: Date.now(),
+          });
+        }
         break;
       }
 

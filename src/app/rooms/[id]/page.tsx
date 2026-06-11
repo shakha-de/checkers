@@ -628,12 +628,38 @@ export default function GameRoom() {
                 : 'Не расстраивайтесь, в следующей партии вам обязательно повезет!'}
             </p>
             {role !== 'spectator' && (
-              <button
-                className={styles.overlayActionBtn}
-                onClick={() => triggerAction('restart')}
-              >
-                Играть снова
-              </button>
+              <>
+                {gameState.rematchProposedBy === role ? (
+                  <div className={styles.rematchStatus}>
+                    <span className={styles.rematchStatusText}>Ожидание согласия соперника...</span>
+                  </div>
+                ) : gameState.rematchProposedBy && gameState.rematchProposedBy !== role ? (
+                  <div className={styles.rematchOfferGroup}>
+                    <div className={styles.rematchOfferText}>Соперник предлагает реванш</div>
+                    <div className={styles.rematchOfferButtons}>
+                      <button
+                        className={`${styles.overlayActionBtn} ${styles.rematchAcceptBtn}`}
+                        onClick={() => triggerAction('restart')}
+                      >
+                        Принять
+                      </button>
+                      <button
+                        className={`${styles.controlBtn} ${styles.rematchDeclineBtn}`}
+                        onClick={() => triggerAction('declineRematch')}
+                      >
+                        Отклонить
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <button
+                    className={styles.overlayActionBtn}
+                    onClick={() => triggerAction('restart')}
+                  >
+                    Играть снова
+                  </button>
+                )}
+              </>
             )}
             <button
               className={styles.controlBtn}
@@ -710,12 +736,40 @@ export default function GameRoom() {
                 </>
               )}
               {winner && role !== 'spectator' && (
-                <button
-                  className={`${styles.controlBtn} ${styles.controlBtnRestart}`}
-                  onClick={() => triggerAction('restart')}
-                >
-                  Начать заново
-                </button>
+                <>
+                  {gameState.rematchProposedBy === role ? (
+                    <div className={styles.rematchStatus} style={{ marginBottom: '0.5rem' }}>
+                      <span className={styles.rematchStatusText}>Ожидание согласия соперника...</span>
+                    </div>
+                  ) : gameState.rematchProposedBy && gameState.rematchProposedBy !== role ? (
+                    <div className={styles.rematchOfferGroup} style={{ marginBottom: '0.5rem' }}>
+                      <div className={styles.rematchOfferText}>Соперник предлагает реванш</div>
+                      <div className={styles.rematchOfferButtons}>
+                        <button
+                          className={`${styles.controlBtn} ${styles.controlBtnRestart}`}
+                          onClick={() => triggerAction('restart')}
+                          style={{ margin: 0 }}
+                        >
+                          Принять
+                        </button>
+                        <button
+                          className={`${styles.controlBtn} ${styles.rematchDeclineBtn}`}
+                          onClick={() => triggerAction('declineRematch')}
+                          style={{ margin: 0 }}
+                        >
+                          Отклонить
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <button
+                      className={`${styles.controlBtn} ${styles.controlBtnRestart}`}
+                      onClick={() => triggerAction('restart')}
+                    >
+                      Начать заново
+                    </button>
+                  )}
+                </>
               )}
               <button className={styles.controlBtn} onClick={() => router.push('/')}>
                 <ArrowLeft size={14} /> Выйти
