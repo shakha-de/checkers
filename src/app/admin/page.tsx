@@ -217,25 +217,6 @@ export default function AdminDashboard() {
     });
   };
 
-  // Select / deselect all currently visible rows
-  const allVisibleSelected = filteredRooms.length > 0 && filteredRooms.every(r => selectedIds.has(r.id));
-  const someVisibleSelected = filteredRooms.some(r => selectedIds.has(r.id));
-  const toggleSelectAll = () => {
-    if (allVisibleSelected) {
-      setSelectedIds(prev => {
-        const next = new Set(prev);
-        filteredRooms.forEach(r => next.delete(r.id));
-        return next;
-      });
-    } else {
-      setSelectedIds(prev => {
-        const next = new Set(prev);
-        filteredRooms.forEach(r => next.add(r.id));
-        return next;
-      });
-    }
-  };
-
   // Clear rooms older than 24 hours
   const handleCleanup = async () => {
     if (!confirm('Вы уверены, что хотите удалить ВСЕ комнаты, созданные более 24 часов назад?')) {
@@ -290,6 +271,25 @@ export default function AdminDashboard() {
     const matchesStatus = statusFilter === 'all' || room.status === statusFilter;
     return matchesSearch && matchesStatus;
   });
+
+  // Select / deselect all currently visible rows (must come after filteredRooms)
+  const allVisibleSelected = filteredRooms.length > 0 && filteredRooms.every(r => selectedIds.has(r.id));
+  const someVisibleSelected = filteredRooms.some(r => selectedIds.has(r.id));
+  const toggleSelectAll = () => {
+    if (allVisibleSelected) {
+      setSelectedIds(prev => {
+        const next = new Set(prev);
+        filteredRooms.forEach(r => next.delete(r.id));
+        return next;
+      });
+    } else {
+      setSelectedIds(prev => {
+        const next = new Set(prev);
+        filteredRooms.forEach(r => next.add(r.id));
+        return next;
+      });
+    }
+  };
 
   // Render Login Card
   if (!authenticated) {
