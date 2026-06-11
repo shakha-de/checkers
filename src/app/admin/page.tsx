@@ -79,6 +79,9 @@ export default function AdminDashboard() {
   // Inspection Modal
   const [inspectedRoom, setInspectedRoom] = useState<AdminRoom | null>(null);
 
+  // Multi-select
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+
   // Fetch rooms list from admin API
   const fetchRooms = useCallback(async (tokenToUse?: string) => {
     const activeToken = tokenToUse || passcode;
@@ -176,6 +179,60 @@ export default function AdminDashboard() {
       alert(err instanceof Error ? err.message : 'Не удалось удалить комнату');
     } finally {
       setActionLoading(null);
+    }
+  };
+
+  // Bulk-delete selected rooms
+  const handleDeleteSelected = async () => {
+    if (selectedIds.size === 0) return;
+    if (!confirm(`Вы уверены, что хотите удалить ${selectedIds.size} выбранных комнат?`)) return;
+
+    setActionLoading('bulk');
+    const ids = Array.from(selectedIds);
+    try {
+      await Promise.all(
+        ids.map(id =>
+          fetch(`/api/admin/rooms?id=${id}`, {
+            method: 'DELETE',
+            headers: { Authorization: passcode },
+          })
+        )
+      );
+      setRooms(prev => prev.filter(r => !selectedIds.has(r.id)));
+      if (inspectedRoom && selectedIds.has(inspectedRoom.id)) setInspectedRoom(null);
+      setSelectedIds(new Set());
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Не удалось удалить выбранные комнаты');
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  // Toggle single-row selection
+  const toggleSelect = (id: string) => {
+    setSelectedIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  };
+
+  // Select / deselect all currently visible rows
+  const allVisibleSelected = filteredRooms.length > 0 && filteredRooms.every(r => selectedIds.has(r.id));
+  const someVisibleSelected = filteredRooms.some(r => selectedIds.has(r.id));
+  const toggleSelectAll = () => {
+    if (allVisibleSelected) {
+      setSelectedIds(prev => {
+        const next = new Set(prev);
+        filteredRooms.forEach(r => next.delete(r.id));
+        return next;
+      });
+    } else {
+      setSelectedIds(prev => {
+        const next = new Set(prev);
+        filteredRooms.forEach(r => next.add(r.id));
+        return next;
+      });
     }
   };
 
@@ -339,6 +396,30 @@ export default function AdminDashboard() {
           </div>
 
           <div className={styles.headerActions}>
+            {/* Bulk action bar (visible when rows are selected) */}
+            {selectedIds.size > 0 && (
+              <div className={styles.bulkBar}>
+                <span className={styles.bulkCount}>{selectedIds.size} выбрано</span>
+                <button
+                  className={styles.bulkClearBtn}
+                  onClick={() => setSelectedIds(new Set())}
+                  title="Снять выделение"
+                >
+                  <X size={13} /> Сбросить
+                </button>
+                <button
+                  className={styles.bulkDeleteBtn}
+                  onClick={handleDeleteSelected}
+                  disabled={actionLoading === 'bulk'}
+                >
+                  {actionLoading === 'bulk' ? (
+                    <><Loader2 className="animate-spin" size={13} /><span>Удаление...</span></>
+                  ) : (
+                    <><Trash2 size={13} /><span>Удалить выбранные</span></>
+                  )}
+                </button>
+              </div>
+            )}
             <button
               className={styles.cleanupBtn}
               onClick={handleCleanup}
@@ -407,6 +488,16 @@ export default function AdminDashboard() {
             <table className={styles.table}>
               <thead>
                 <tr>
+                  <th className={styles.checkboxCol}>
+                    <input
+                      type="checkbox"
+                      className={styles.checkbox}
+                      checked={allVisibleSelected}
+                      ref={el => { if (el) el.indeterminate = someVisibleSelected && !allVisibleSelected; }}
+                      onChange={toggleSelectAll}
+                      title="Выбрать все"
+                    />
+                  </th>
                   <th>ID Комнаты</th>
                   <th>Создана</th>
                   <th>Статус</th>
@@ -426,7 +517,18 @@ export default function AdminDashboard() {
                   const score = room.game_state?.score;
 
                   return (
-                    <tr key={room.id} className={styles.tableRow}>
+                    <tr
+                      key={room.id}
+                      className={`${styles.tableRow} ${selectedIds.has(room.id) ? styles.tableRowSelected : ''}`}
+                    >
+                      <td className={styles.checkboxCol}>
+                        <input
+                          type="checkbox"
+                          className={styles.checkbox}
+                          checked={selectedIds.has(room.id)}
+                          onChange={() => toggleSelect(room.id)}
+                        />
+                      </td>
                       <td className={styles.roomIdCell}>
                         <a
                           href={`/rooms/${room.id}`}
