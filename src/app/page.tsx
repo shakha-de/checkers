@@ -327,28 +327,6 @@ export default function Home() {
                 </>
               )}
             </button>
-
-            {/* Rules Section */}
-            <div className={styles.rules}>
-              <h3 className={styles.rulesTitle}>Правила Русских Шашек:</h3>
-              <ul className={styles.rulesList}>
-                <li className={styles.ruleItem}>
-                  Простые шашки ходят по диагонали вперед, а бьют вперед и назад.
-                </li>
-                <li className={styles.ruleItem}>
-                  Взятие (битье) соперника обязательно. Если есть бой, другие ходы делать нельзя.
-                </li>
-                <li className={styles.ruleItem}>
-                  Дамка может ходить на любое число клеток по диагонали и бить на любом расстоянии.
-                </li>
-                <li className={styles.ruleItem}>
-                  Если простая шашка достигает последнего ряда при взятии, она сразу становится дамкой и продолжает бой (если возможно).
-                </li>
-                <li className={styles.ruleItem}>
-                  Срубленные шашки убираются с поля только в конце хода (правило турецкого удара).
-                </li>
-              </ul>
-            </div>
           </div>
         </div>
 
@@ -462,6 +440,28 @@ export default function Home() {
                 </div>
               )}
             </div>
+          </div>
+
+          {/* Rules Section */}
+          <div className={`${styles.rules} glass`}>
+            <h3 className={styles.rulesTitle}>Правила Русских Шашек:</h3>
+            <ul className={styles.rulesList}>
+              <li className={styles.ruleItem}>
+                Простые шашки ходят по диагонали вперед, а бьют вперед и назад.
+              </li>
+              <li className={styles.ruleItem}>
+                Взятие (битье) соперника обязательно. Если есть бой, другие ходы делать нельзя.
+              </li>
+              <li className={styles.ruleItem}>
+                Дамка может ходить на любое число клеток по диагонали и бить на любом расстоянии.
+              </li>
+              <li className={styles.ruleItem}>
+                Если простая шашка достигает последнего ряда при взятии, она сразу становится дамкой и продолжает бой (если возможно).
+              </li>
+              <li className={styles.ruleItem}>
+                Срубленные шашки убираются с поля только в конце хода (правило турецкого удара).
+              </li>
+            </ul>
           </div>
         </div>
 
