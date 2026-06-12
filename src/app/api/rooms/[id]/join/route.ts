@@ -19,7 +19,19 @@ export async function POST(
     }
 
     const body = await request.json().catch(() => ({}));
-    const existingToken = body.token;
+    let existingToken = body.token;
+
+    // Clean up empty, invalid, or stringified null/undefined tokens
+    if (
+      !existingToken ||
+      existingToken === 'null' ||
+      existingToken === 'undefined' ||
+      existingToken === 'spectator' ||
+      typeof existingToken !== 'string' ||
+      existingToken.trim() === ''
+    ) {
+      existingToken = null;
+    }
 
     // 1. If player already has a token for this room, return their color
     if (existingToken) {
@@ -32,7 +44,7 @@ export async function POST(
     }
 
     // 2. Otherwise, assign an empty slot
-    const newToken = Math.random().toString(36).substring(2, 15);
+    const tokenToAssign = existingToken || 'usr_' + Math.random().toString(36).substring(2, 15);
     let assignedColor: 'w' | 'b' | 'spectator' = 'spectator';
 
     const players = { ...room.players };
@@ -40,10 +52,10 @@ export async function POST(
     let status = room.status;
 
     if (!players.w) {
-      players.w = newToken;
+      players.w = tokenToAssign;
       assignedColor = 'w';
     } else if (!players.b) {
-      players.b = newToken;
+      players.b = tokenToAssign;
       assignedColor = 'b';
     }
 
@@ -81,14 +93,14 @@ export async function POST(
       }
 
       return NextResponse.json({
-        token: newToken,
+        token: tokenToAssign,
         color: assignedColor,
       });
     }
 
     // Spectator mode if room is full
     return NextResponse.json({
-      token: existingToken || newToken,
+      token: existingToken || tokenToAssign,
       color: 'spectator',
     });
   } catch (error: unknown) {

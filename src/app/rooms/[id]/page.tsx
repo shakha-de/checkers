@@ -213,7 +213,16 @@ export default function GameRoom() {
   useEffect(() => {
     if (typeof window === 'undefined') return;
 
-    const storedToken = localStorage.getItem(`checkers_token_${roomId}`);
+    let storedToken = localStorage.getItem(`checkers_token_${roomId}`);
+    if (
+      !storedToken ||
+      storedToken === 'null' ||
+      storedToken === 'undefined' ||
+      storedToken === 'spectator'
+    ) {
+      storedToken = 'usr_' + Math.random().toString(36).substring(2, 15);
+      localStorage.setItem(`checkers_token_${roomId}`, storedToken);
+    }
 
     const joinRoom = async () => {
       try {

@@ -23,8 +23,10 @@ export async function POST(
 
     // Verify player color based on token
     let playerColor: Player | null = null;
-    if (room.players.w === token) playerColor = 'w';
-    else if (room.players.b === token) playerColor = 'b';
+    if (token && typeof token === 'string' && token.trim() !== '') {
+      if (room.players.w === token) playerColor = 'w';
+      else if (room.players.b === token) playerColor = 'b';
+    }
 
     // Support playing against AI: if it is the AI's turn and the request is made by the human player,
     // temporarily authorize playerColor as the AI color.

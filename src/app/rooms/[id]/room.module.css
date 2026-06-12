@@ -378,11 +378,12 @@
   width: 100%;
 }
 
+
 .boardContainer {
   width: 100%;
   max-width: 520px;
   aspect-ratio: 1 / 1;
-  background: rgba(14, 11, 26, 0.65);
+  background: rgba(26, 22, 46, 0.75);
   border: 1px solid rgba(255, 255, 255, 0.08);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
@@ -410,12 +411,12 @@
 }
 
 .cellLight {
-  background: rgba(255, 255, 255, 0.04);
+  background: rgba(255, 255, 255, 0.12);
   box-shadow: inset 0 0 2px rgba(255, 255, 255, 0.05);
 }
 
 .cellDark {
-  background: rgba(15, 13, 28, 0.55);
+  background: rgba(46, 42, 69, 0.65);
   box-shadow: inset 0 0 12px rgba(0, 0, 0, 0.4);
 }
 
@@ -424,8 +425,8 @@
   position: absolute;
   font-size: 0.65rem;
   font-weight: 700;
-  opacity: 0.35;
-  color: #000;
+  opacity: 0.7;
+  color: rgba(255, 255, 255, 0.45);
   pointer-events: none;
 }
 
